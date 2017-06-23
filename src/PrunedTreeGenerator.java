@@ -16,6 +16,8 @@ import tree.NewickReader;
 import tree.NewickWriter;
 import tree.PhyloNode;
 import tree.PhyloTree;
+import tree.PhyloTree.Path;
+import tree.PhyloTreeModel;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -30,11 +32,17 @@ import tree.PhyloTree;
 public class PrunedTreeGenerator {
     
     Long seed=new Long(1);
-    File workDir=new File("/home/ben/Dropbox/viromeplacer/test_datasets/accuracy_tests");
+    File workDir=null;
     
     public static void main(String[] args) {
         
         try {
+            
+            ///////////////////////////////////////////////////////////////////
+            //TEST ZONE, forces arguments
+            String HOME = System.getenv("HOME");
+            File workDir=new File(HOME+"/Dropbox/viromeplacer/test_datasets/accuracy_tests");
+            
             //load a test tree
             String treeString="(A:0.1,B:0.2,((C:0.1,D:0.2)Y:0.1,(E:0.1,F:0.2)Z:0.2)X:0.2)W:0.0;";
             
@@ -56,7 +64,7 @@ public class PrunedTreeGenerator {
             
             
             PrunedTreeGenerator ptg=new PrunedTreeGenerator();
-            ptg.generatePrunedTrees(tree,align);
+            ptg.generatePrunedTrees(workDir,tree,align);
             
             Thread.sleep(10000);
             
@@ -71,11 +79,11 @@ public class PrunedTreeGenerator {
     
     /**
      * main script
-     * @param tree 
+     * @param treeCopy 
      */
-    private void generatePrunedTrees(PhyloTree tree,Alignment align) throws IOException {
-        System.out.println("Tree; #nodes="+tree.getNodeCount());
-        System.out.println("Tree; rooted="+tree.isRooted());
+    private void generatePrunedTrees(File workDir,PhyloTree tree,Alignment align) throws IOException {
+        
+
         
         //get list of internal Nx ids
         Integer[] nodeIds=new Integer[tree.getNodeIdsByDFS().size()];
@@ -83,16 +91,39 @@ public class PrunedTreeGenerator {
         //shuffle their order
         shuffleArray(nodeIds);
         //define 10 first %
-        double percent=0.1;
+        double percent=1;
         Integer[]prunedNodeIds=Arrays.copyOfRange(nodeIds, 0, new Double(percent*nodeIds.length).intValue());
         System.out.println("prunedNodeIds: "+Arrays.toString(prunedNodeIds));
         
         //launch pruning for each selected Nx
         for (int i = 0; i < prunedNodeIds.length; i++) {
             Integer nx_id = prunedNodeIds[i];
+            System.out.println("--------------------------------------");
+            System.out.println("copying tree before pruning...");
+            PhyloNode rootCopy=tree.getRoot().copy();
+            PhyloTree treeCopy=new PhyloTree(new PhyloTreeModel(rootCopy),tree.isRooted());;
+            System.out.println("indexing tree ...");
+            treeCopy.initIndexes();
+            System.out.println("copy done");
+            //some checkup about the original  copy
+            System.out.println("Tree; #nodes="+treeCopy.getNodeCount());
+            System.out.println("Tree; rooted="+treeCopy.isRooted());
+            System.out.println("Tree; #leaves="+treeCopy.getLeavesCount());
+            Enumeration depthFirstEnumeration = treeCopy.getRoot().depthFirstEnumeration();
+            while(depthFirstEnumeration.hasMoreElements()) {
+                System.out.println("Tree;  nodes="+depthFirstEnumeration.nextElement());
+            }
+            System.out.println("Starting pruning...");
             //current root Nx defininf the pruned clade
-            PhyloNode Nx= tree.getById(nx_id);
-            System.out.println("selected Nx: "+Nx);
+            PhyloNode Nx= treeCopy.getById(nx_id);
+            System.out.println("--------------------------------------");
+            System.out.println("selected Nx: "+Nx+" (id="+nx_id+")");
+            
+            
+            //TO DO : constructor copy of the alignment, like the tree
+            
+            
+            
             ///////////////////////////////////////////////////////////
             //first, modify alignment and deleted subtree related to this Nx
             
@@ -162,52 +193,78 @@ public class PrunedTreeGenerator {
             Nx.removeFromParent();
             Nx=null;
             //save the pruned tree
-            tree.initIndexes(); //usefull to remove former nodes from the maps
+            System.out.println("Indexing pruned tree");
+            treeCopy.initIndexes(); //usefull to remove former nodes from the maps
             //before being written
-            nw.writeNewickTree(tree, true, true, false);
+            System.out.println("Writing pruning tree newick");
+            nw.writeNewickTree(treeCopy, true, true, false);
             
-            tree.displayTree();
 
             
             ////////////////////////////////////////////////////////////////////
-            //third, build Dtx using RMQreduction-LCA
+            //third, build Dtx and D'tx in a single go
+            //note: for very big trees, should build that as an object
+            //and save it by serialization
+            StringBuilder nodeDistMatrix=new StringBuilder();
+            StringBuilder branchDistMatrix=new StringBuilder();
+            int matrixSize=treeCopy.getNodeCount();
+            ArrayList<Integer> nodeIdsByDFS = treeCopy.getNodeIdsByDFS();
+            System.out.println("Dtx Nodes:"+treeCopy.getNodeIdsByDFS());
+            System.out.println("Dtx size (x,y):"+matrixSize);
             
-            PhyloNode A = tree.getByName("A");
-            PhyloNode X = tree.getByName("X");
-            PhyloNode B = tree.getByName("B");
-            PhyloNode F = tree.getByName("F");
-            PhyloNode Z = tree.getByName("Z");
-            PhyloNode W = tree.getByName("W");
-            List<PhyloNode> shortestPath = tree.shortestPath(tree.getRoot(), A,Z);
-            int nodeDistance=-1;
-            float branchDistance=-1.0f;
-            if (shortestPath.size()>2) {
-                nodeDistance=shortestPath.size()-2;
-                
-                
-                
-            } else if (shortestPath.size()>1) {
-                nodeDistance=0;
-                if (shortestPath.get(0).getDepth()>shortestPath.get(0).getDepth())   //A,W shortestpath query
-                    branchDistance=shortestPath.get(0).getBranchLengthToAncestor();  //W,A shortestpath query
-                else
-                    branchDistance=shortestPath.get(1).getBranchLengthToAncestor();
-            } else {
-                nodeDistance=0;
-                branchDistance=0;
+            //header of both matrices
+            nodeDistMatrix.append("nodeLabels;");
+            for (int nodeId:nodeIdsByDFS)
+                nodeDistMatrix.append(";"+treeCopy.getById(nodeId).getLabel());
+            nodeDistMatrix.append("\n");
+            nodeDistMatrix.append(";nodeIds");
+            for (int nodeId:nodeIdsByDFS)
+                nodeDistMatrix.append(";"+nodeId);
+            nodeDistMatrix.append("\n");
+            branchDistMatrix.append(new String(nodeDistMatrix)); //simple contructor copy
+            
+            //distances
+            for (int y = 0; y < matrixSize; y++) {
+                int yId=nodeIdsByDFS.get(y);
+                PhyloNode nodeY=treeCopy.getById(yId);
+                nodeDistMatrix.append(nodeY.getLabel()+";"+yId);
+                branchDistMatrix.append(nodeY.getLabel()+";"+yId);
+                for (int x = 0; x < matrixSize; x++) {
+                    PhyloNode nodeX=treeCopy.getById(nodeIdsByDFS.get(x));
+                    nodeDistMatrix.append(";");
+                    branchDistMatrix.append(";");
+                    if (nodeX==nodeY) {
+                        nodeDistMatrix.append("0");
+                        branchDistMatrix.append("0.0");
+                    }
+                    else {
+                        Path shortestPath = treeCopy.shortestPath(treeCopy.getRoot(), nodeX,nodeY);
+                        nodeDistMatrix.append(shortestPath.nodeDistance);
+                        branchDistMatrix.append(shortestPath.branchDistance);
+                    }
+                }
+                nodeDistMatrix.append("\n");
+                branchDistMatrix.append("\n");
             }
-                
-            //the shortest path include the nodes i and j
+            //System.out.println("----------------");
+            //System.out.println(nodeDistMatrix.toString());
+            //System.out.println("----------------");
+            //System.out.println(branchDistMatrix.toString());
+            //System.out.println("----------------");
+            brDtx.append(nodeDistMatrix);
+            brD2tx.append(branchDistMatrix);
+          
 
             
-            ////////////////////////////////////////////////////////////////////
-            //fourth, build D'tx using RMQreduction-LCA
+            //debug
+            //tree.displayTree();
             
-            
-            //close all writers
+            //closes everything
             brDtx.close();
             brD2tx.close();
             nw.close();
+            treeCopy=null;
+            
             
         }
         
