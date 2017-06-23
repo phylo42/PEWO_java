@@ -43,7 +43,7 @@ public class PrunedTreeGenerator {
             Fasta fC=new Fasta("C", "GGAAT");
             Fasta fD=new Fasta("D", "GGGAT");
             Fasta fE=new Fasta("E", "CCATT");
-            Fasta fF=new Fasta("F", "CCATG");
+            Fasta fF=new Fasta("F", "CCATG"); 
             ArrayList<Fasta> fastas=new ArrayList<>();
             fastas.add(fA); fastas.add(fB); fastas.add(fC); fastas.add(fD);
             fastas.add(fE); fastas.add(fF);
