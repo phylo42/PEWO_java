@@ -1,10 +1,15 @@
 
 import alignement.Alignment;
+import etc.Infos;
 import inputs.Fasta;
+import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -12,6 +17,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import main_v2.ARProcessLauncher;
 import tree.NewickReader;
 import tree.NewickWriter;
 import tree.PhyloNode;
@@ -33,6 +39,12 @@ public class PrunedTreeGenerator {
     
     Long seed=new Long(1);
     File workDir=null;
+    
+    //list of new files
+    public ArrayList<File> listPrunedAlignments=new ArrayList<>();
+    public ArrayList<File> listPrunedTrees=new ArrayList<>();
+    public ArrayList<File> listDtx=new ArrayList<>();
+    public ArrayList<File> listD2Tx=new ArrayList<>();  
     
     public static void main(String[] args) {
         
@@ -61,12 +73,62 @@ public class PrunedTreeGenerator {
             tree.initIndexes();
             
             //tree.displayTree();
+            ////////////////////////////////////////////////////////
             
+          
             
             PrunedTreeGenerator ptg=new PrunedTreeGenerator();
             ptg.generatePrunedTrees(workDir,tree,align);
+            System.out.println("PRUNED TREE GENERATION DONE !");
             
-            Thread.sleep(10000);
+            //launching DB_BUILD on all these files
+            ArrayList<File> workDirs=new ArrayList<>();
+            for (int i = 0; i < ptg.listPrunedAlignments.size(); i++) {
+                File a=ptg.listPrunedAlignments.get(i);
+                String experiment=a.getName().split("\\.")[0];
+                System.out.println("LAUCHING DB_BUILD FOR EXPERIMENT: "+experiment);
+                File expPath=new File(workDir.getAbsolutePath()+File.separator+experiment);
+                System.out.println("Experiment work dir: "+expPath.getAbsolutePath());
+                workDirs.add(expPath);
+                if (workDir.canWrite())
+                    expPath.mkdir();
+                else {
+                    System.out.println("Cannot write in dir: "+expPath.getAbsolutePath());
+                    System.exit(1);
+                }
+                
+                float alpha=1.0f;
+                int k=3;
+                
+                List<String> com=new ArrayList<>();
+                com.add("/usr/bin/java");
+                com.add("-jar");
+                com.add("/home/benclaff/NetBeansProjects/viromeplacer/dist/ViromePlacer.jar");
+                com.add("-m");
+                com.add("b");
+                com.add("-a");
+                com.add(new Float(alpha).toString());
+                com.add("-k");
+                com.add(new Integer(k).toString());
+                com.add("-t");
+                com.add(ptg.listPrunedTrees.get(i).getAbsolutePath());
+                com.add("-i");
+                com.add(ptg.listPrunedAlignments.get(i).getAbsolutePath());
+                com.add("-w");
+                com.add(expPath.getAbsolutePath());
+                com.add("-v");
+                com.add("1");
+                               
+                
+                executeProcess(com, expPath);
+                
+                
+                
+            }
+            
+            
+            
+            Thread.sleep(1);
             
         } catch (IOException ex) {
             Logger.getLogger(PrunedTreeGenerator.class.getName()).log(Level.SEVERE, null, ex);
@@ -105,22 +167,28 @@ public class PrunedTreeGenerator {
             System.out.println("indexing tree ...");
             treeCopy.initIndexes();
             System.out.println("copy done");
-            //some checkup about the original  copy
-            System.out.println("Tree; #nodes="+treeCopy.getNodeCount());
-            System.out.println("Tree; rooted="+treeCopy.isRooted());
-            System.out.println("Tree; #leaves="+treeCopy.getLeavesCount());
-            Enumeration depthFirstEnumeration = treeCopy.getRoot().depthFirstEnumeration();
-            while(depthFirstEnumeration.hasMoreElements()) {
-                System.out.println("Tree;  nodes="+depthFirstEnumeration.nextElement());
-            }
+//            //some checkup about the original  copy
+//            System.out.println("Tree; #nodes="+treeCopy.getNodeCount());
+//            System.out.println("Tree; rooted="+treeCopy.isRooted());
+//            System.out.println("Tree; #leaves="+treeCopy.getLeavesCount());
+//            Enumeration depthFirstEnumeration = treeCopy.getRoot().depthFirstEnumeration();
+//            while(depthFirstEnumeration.hasMoreElements()) {
+//                System.out.println("Tree;  nodes="+depthFirstEnumeration.nextElement());
+//            }
+            //copying alignment
+            System.out.println("Copying alignment");
+            Alignment alignCopy=align.copy();
+            
             System.out.println("Starting pruning...");
             //current root Nx defininf the pruned clade
             PhyloNode Nx= treeCopy.getById(nx_id);
             System.out.println("--------------------------------------");
             System.out.println("selected Nx: "+Nx+" (id="+nx_id+")");
-            
-            
-            //TO DO : constructor copy of the alignment, like the tree
+            if (Nx.isRoot()) {
+                System.out.println("SKIPPED: this node is root (id="+nx_id+", no pruning.");
+                continue;
+            }
+                        
             
             
             
@@ -132,6 +200,10 @@ public class PrunedTreeGenerator {
             File Tx=new File(workDir+File.separator+"T"+i+"_nx="+nx_id+"("+Nx.getLabel()+").tree");
             File Dtx=new File(workDir+File.separator+"Dt"+i+"_nx="+nx_id+"("+Nx.getLabel()+").csv");
             File D2tx=new File(workDir+File.separator+"D2t"+i+"_nx="+nx_id+"("+Nx.getLabel()+").csv");
+            listPrunedTrees.add(Tx);
+            listPrunedAlignments.add(Ax);
+            listDtx.add(Dtx);
+            listD2Tx.add(D2tx);
             //prepare writers
             BufferedWriter brDtx=new BufferedWriter(new FileWriter(Dtx));
             BufferedWriter brD2tx=new BufferedWriter(new FileWriter(D2tx));
@@ -143,7 +215,7 @@ public class PrunedTreeGenerator {
             if (Nx.isLeaf()) {
                 System.out.println("nx is leaf !");
                 leavesRemoved.add(Nx.getLabel());
-                align.removeSequence(Nx.getLabel());
+                alignCopy.removeSequence(Nx.getLabel());
             //if an internal Nx
             } else {
                 //enumerate nodes in subtree
@@ -157,14 +229,14 @@ public class PrunedTreeGenerator {
                     //if leaf, removes and export
                     if (nextNx.isLeaf()) {
                         leavesRemoved.add(nextNx.getLabel());
-                        align.removeSequence(nextNx.getLabel());
+                        alignCopy.removeSequence(nextNx.getLabel());
                     } 
                 }
                 //delete Nx children (this does not delete the sub nodes from memory !!!)
                 nextNx.removeAllChildren();
             }
             //write alignment to file
-            align.writeAlignmentAsFasta(Ax);
+            alignCopy.writeAlignmentAsFasta(Ax);
             System.out.println("LeavesRemoved: "+leavesRemoved);
             
             ////////////////////////////////////////////////////////////////////
@@ -180,24 +252,41 @@ public class PrunedTreeGenerator {
                 Np_p=(PhyloNode)Np.getChildAfter(Nx); //Np' if on right
             System.out.println("Np_p "+Np_p);
             float Np_p_bl=Np_p.getBranchLengthToAncestor(); //bl of Np' to Np
-            //disconnect all
-            Np.removeFromParent();
-            Np_p.removeFromParent();            
-            Nx.removeFromParent();
-            //connect Np' tp Np'' and update bl
-            Np_pp.add(Np_p);
-            Np_p.setBranchLengthToAncestor(Np_bl+Np_p_bl);
-            //detach and get rid of Nx and Np
-            Np.removeFromParent();
-            Np=null;
-            Nx.removeFromParent();
-            Nx=null;
+            
+            //when Nx is a root's son, Np_pp (parent of root) doesn't exists
+            //basically, in this case we just remove the subtree of Nx and
+            // the root; Np' becomes the root
+            if (Np_pp==null) { 
+                Np.removeFromParent();//does nothing in fact
+                Np_p.removeFromParent();
+                Nx.removeFromParent();
+                Np_p.setBranchLengthToAncestor(0.0f);
+                //rebuilt phylotree using this new root
+                treeCopy=new PhyloTree(new PhyloTreeModel(Np_p),tree.isRooted());
+                
+            //in all other case, the tree is disconnected and reconnected
+            } else{ 
+                //disconnect all
+                Np.removeFromParent();
+                Np_p.removeFromParent();            
+                Nx.removeFromParent();
+                //connect Np' tp Np'' and update bl
+                Np_pp.add(Np_p);
+                Np_p.setBranchLengthToAncestor(Np_bl+Np_p_bl);
+                //detach and get rid of Nx and Np
+                Np.removeFromParent();
+                Np=null;
+                Nx.removeFromParent();
+                Nx=null;
+            }
+            
+            
             //save the pruned tree
             System.out.println("Indexing pruned tree");
             treeCopy.initIndexes(); //usefull to remove former nodes from the maps
             //before being written
             System.out.println("Writing pruning tree newick");
-            nw.writeNewickTree(treeCopy, true, true, false);
+            nw.writeNewickTree(treeCopy, true, true, false);  //no internal node names if PAML !
             
 
             
@@ -293,6 +382,64 @@ public class PrunedTreeGenerator {
         }
     }
     
+    /**
+     * execution itself
+     * @param com 
+     */
+    private static void executeProcess(List<String> com, File workDir) throws IOException {
+
+        ProcessBuilder pb = new ProcessBuilder(com);
+        //pb.environment().entrySet().stream().forEach((e) ->{ System.out.println(e.getKey()+"="+e.getValue()); });
+        //env.put("VAR1", "myValue"); env.remove("OTHERVAR");
+        pb.directory(workDir);
+        Infos.println("Current directory:"+pb.directory().getAbsolutePath());
+        pb.redirectErrorStream(false);
+        pb.redirectOutput(ProcessBuilder.Redirect.PIPE);
+        pb.redirectInput(ProcessBuilder.Redirect.PIPE);
+        Process p = pb.start();
+        assert pb.redirectInput() == ProcessBuilder.Redirect.PIPE;
+        assert p.getInputStream().read() == -1;
+        //redirect sdtout/stdin to files
+        FileOutputStream STDOUTOutputStream=new FileOutputStream(new File(workDir.getAbsolutePath()+File.separator+"sdtout.txt"));
+        FileOutputStream STDERROutputStream=new FileOutputStream(new File(workDir.getAbsolutePath()+File.separator+"_sdterr.txt"));
+        inputStreamToOutputStream(p.getInputStream(), System.out);
+        inputStreamToOutputStream(p.getInputStream(), STDOUTOutputStream);
+        inputStreamToOutputStream(p.getErrorStream(), STDERROutputStream);
+        Infos.println("External process operating reconstruction is logged in: "+new File(workDir.getAbsolutePath()+File.separator+"sdtout.txt").getAbsolutePath());
+        Infos.println("Launching process ...");
+        try {
+            p.waitFor();
+            Thread.sleep(1000);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(ARProcessLauncher.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        System.out.flush();
+        STDOUTOutputStream.flush();
+        STDERROutputStream.flush();
+        STDOUTOutputStream.close();
+        STDERROutputStream.close();
+        System.out.println(""); //this line ensures line return after the external process output
+        System.out.println("Process finished.");
+    }
     
+    
+    public static void inputStreamToOutputStream(final InputStream inputStream, final OutputStream out) {
+        Thread t = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    int d;
+                    BufferedInputStream bis=new BufferedInputStream(inputStream);
+                    while ((d = bis.read()) != -1) {
+                        out.write(d);
+                    }
+                } catch (IOException ex) {
+                    Infos.println(ex.getCause());
+                }
+            }
+        });
+        t.setDaemon(true);
+        t.start();
+    }
     
 }
