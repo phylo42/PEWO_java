@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import main_v2.ARProcessLauncher;
+import org.jfree.io.IOUtils;
 import tree.ExtendedTree;
 import tree.NewickReader;
 import tree.NewickWriter;
@@ -99,8 +101,9 @@ public class PrunedTreeGenerator {
     //AR program
     File ARExecutablePath=new File(HOME+"/Dropbox/viromeplacer/test_datasets/software/paml4.9b_hacked/bin/baseml");
     //hmm programs
-    File HMMBUILDPath=new File("/home/ben/Dropbox/viromeplacer/test_datasets/software/hmmer-3.1b2/binaries/hmmbuild");
-    File HMMALIGNPath=new File("/home/ben/Dropbox/viromeplacer/test_datasets/software/hmmer-3.1b2/binaries/hmmalign");
+    File HMMBinariesDir=new File("/home/ben/Dropbox/viromeplacer/test_datasets/software/hmmer-3.1b2/binaries");
+    File HMMBUILDPath=new File(HMMBinariesDir.getAbsolutePath()+File.separator+"hmmbuild");
+    File HMMALIGNPath=new File(HMMBinariesDir.getAbsolutePath()+File.separator+"hmmalign");
     
     //file permissions given to the qsub scripts
     EnumSet<PosixFilePermission> perms =
@@ -116,7 +119,7 @@ public class PrunedTreeGenerator {
         
     public static void main(String[] args) {
         
-        System.out.println("ARGS: workDir ARProgBinaries align tree percentPruning readSize1,readSize2,...");
+        System.out.println("ARGS: workDir ARBinaries HMMBinariesDir align tree percentPruning readSize1,readSize2,...");
         
         try {
             //launch
@@ -127,10 +130,13 @@ public class PrunedTreeGenerator {
             if (args.length>0) {
                 ptg.workDir=new File(args[0]);
                 ptg.ARExecutablePath=new File(args[1]);
-                ptg.alignFile=new File(args[2]);
-                ptg.treeFile=new File(args[3]);
-                ptg.percentPruning=Double.parseDouble(args[4]);
-                String[] readSizes=args[5].split(",");
+                ptg.HMMBinariesDir=new File(args[2]);
+                ptg.HMMBUILDPath=new File(ptg.HMMBinariesDir.getAbsolutePath()+File.separator+"hmmbuild");
+                ptg.HMMALIGNPath=new File(ptg.HMMBinariesDir.getAbsolutePath()+File.separator+"hmmalign");
+                ptg.alignFile=new File(args[3]);
+                ptg.treeFile=new File(args[4]);
+                ptg.percentPruning=Double.parseDouble(args[5]);
+                String[] readSizes=args[6].split(",");
                 ptg.R=new int[readSizes.length];
                 for (int i = 0; i < readSizes.length; i++) {
                     ptg.R[i]=Integer.valueOf(readSizes[i]);
@@ -141,6 +147,8 @@ public class PrunedTreeGenerator {
             
             System.out.println("workDir: "+ptg.workDir);
             System.out.println("ARExecutable: "+ptg.ARExecutablePath);
+            System.out.println("HMMAlignExecutable: "+ptg.HMMALIGNPath);
+            System.out.println("HMMBuildExecutable: "+ptg.HMMBUILDPath);
             System.out.println("alignFile: "+ptg.alignFile);
             System.out.println("treeFile: "+ptg.treeFile);
             System.out.println("readSizes: "+Arrays.toString(ptg.R));
@@ -574,7 +582,7 @@ public class PrunedTreeGenerator {
                         //select an uniformely distibution position
                         int p=randomGenerator.nextInt(0, seqNoGaps.length()-v_length);
                         String read=next.getSequence(true).substring(p, p+v_length);
-                        Fasta n=new Fasta(next.getHeader()+"_r"+R[j]+"_"+p+":"+(p+v_length-1), read);
+                        Fasta n=new Fasta(next.getHeader()+"_r"+R[j]+"_"+p+"_"+(p+v_length-1), read);
                         fw.append(n.getFormatedFasta()+"\n");
                     }
                 }
@@ -805,6 +813,14 @@ public class PrunedTreeGenerator {
         //create HMMx directories
         File HMMxDir=new File(workDir+File.separator+"HMMx");
         HMMxDir.mkdir();
+        //writee a copy of the psiblast2fasta.py script from the jar to the HMMxDir
+        File pyScript=new File(HMMxDir.getAbsolutePath()+File.separator+"psiblast2fasta.py");
+        InputStream resourceAsStream = this.getClass().getClassLoader().getResourceAsStream("psiblast2fasta.py");
+        Files.copy(resourceAsStream, pyScript.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        resourceAsStream.close();
+        Files.setPosixFilePermissions(pyScript.toPath(), perms);
+
+        
         //launch pruning for each selected Nx
         for (int i = 0; i < actuallyPrunedNodeIds.size(); i++) {
             Integer nx_id = actuallyPrunedNodeIds.get(i);
@@ -836,16 +852,16 @@ public class PrunedTreeGenerator {
             //build alignments of reads
             List<File> reads=readFiles.get(experimentAlignmentLabel);
             for (int j=0;j<reads.size();j++) {
-                File stoOuput=new File(HMMxAxDir.getAbsolutePath()+File.separator+reads.get(j).getName().split("\\.")[0]);
-                commandSet.append(  HMMALIGNPath.getAbsolutePath()+" --outformat PSIBLAST "
-                                    + " --mapali "+Ax.getAbsolutePath()+" -o "+stoOuput.getAbsolutePath()
+                File alnOutput=new File(HMMxAxDir.getAbsolutePath()+File.separator+reads.get(j).getName().split("\\.")[0]+".aln.psiblast");
+                commandSet.append(HMMALIGNPath.getAbsolutePath()+" --outformat PSIBLAST "
+                                    + " --mapali "+Ax.getAbsolutePath()+" -o "+alnOutput.getAbsolutePath()
                                     + " "+hmmOuput+" "+reads.get(j)
-                                    + "\n");
-                
-                            
-                // TODO conversion to fasta   
-                
-                
+                                    + "\n");     
+                //conversion to fasta
+                commandSet.append(  pyScript.getAbsolutePath()+" "+
+                                    alnOutput.getAbsolutePath()+" "+
+                                    alnOutput.getParentFile().getAbsolutePath()+File.separator+alnOutput.getName().split("\\.")[0]+".aln.fasta" +
+                                    "\n");   
             }
             //save this alignment commands in a sh script
             File shScript=new File(HMMxAxDir.getAbsolutePath()+File.separator+"align_by_hmm.sh");
@@ -855,9 +871,8 @@ public class PrunedTreeGenerator {
             Files.setPosixFilePermissions(shScript.toPath(), perms);
             //add the qsub execution line of this sh script in the list of qsub
             //commands
-            
-            //TODO : correct qsub commands
-            qSubCommands.append(shScript.getAbsolutePath()+"\n");
+            qSubCommands.append("echo \""+shScript.getAbsolutePath()+"\" |  qsub -N HMMx_"+experimentAlignmentLabel+
+                                " -wd "+HMMxAxDir.getAbsolutePath()+"\n");
         }
         //write the qsub command file
         File qsubScript=new File(HMMxDir.getAbsolutePath()+File.separator+"qsub_hmm_commands");
@@ -865,8 +880,8 @@ public class PrunedTreeGenerator {
         bwQsubScript.append(qSubCommands.toString());
         bwQsubScript.close();
         Files.setPosixFilePermissions(qsubScript.toPath(), perms);
-
         
+
     }
     
     
