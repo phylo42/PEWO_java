@@ -198,7 +198,7 @@ public class PrunedTreeGenerator {
             String line=null;
             String treeString=null;
             while((line=br.readLine())!=null) {treeString=line;}
-            PhyloTree tree = NewickReader.parseNewickTree2(treeString, true);
+            PhyloTree tree = NewickReader.parseNewickTree2(treeString, true, false);
             tree.initIndexes();
             System.out.println("Original tree, # nodes: "+tree.getNodeCount());
             //tree.displayTree();
@@ -275,6 +275,15 @@ public class PrunedTreeGenerator {
         File skippedLog=new File(workDir+File.separator+"SKIPPED_Nx");
         BufferedWriter skippedLogBw=new BufferedWriter(new FileWriter(skippedLog,false));
         
+        //write in a binary file the pruned tree and the expected placement,
+        //that is the branch b_new (and b_new_p if rerooting), see algo below.
+        //expected placement is saved through an integer array of 1 or 2 elements
+        //integer is the nodeId of the node son of b_new
+        File expectedPlacementsFile=new File(workDir.getAbsolutePath()+File.separator+"expected_placements.bin");
+        ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream(expectedPlacementsFile),4096));
+        ArrayList<ArrayList<Integer>> expectedPlacements=new ArrayList<>();
+        
+        
         //prepare Dtx and D'tx matrices, build their headers
         fileDtx=new File(workDir+File.separator+"Dtx.csv");
         fileD2tx=new File(workDir+File.separator+"D2tx.csv");
@@ -302,7 +311,7 @@ public class PrunedTreeGenerator {
             System.out.println("--------------------------------------");
             System.out.println("copying tree and alignment before pruning...");
             PhyloNode rootCopy=tree.getRoot().copy();
-            PhyloTree treeCopy=new PhyloTree(new PhyloTreeModel(rootCopy),tree.isRooted());;
+            PhyloTree treeCopy=new PhyloTree(new PhyloTreeModel(rootCopy),tree.isRooted(), false);;
             System.out.println("indexing tree ...");
             treeCopy.initIndexes();
 //            //some checkup about the original  copy
@@ -463,7 +472,7 @@ public class PrunedTreeGenerator {
                 Np.setLabel("added_root");
                 Np.setBranchLengthToAncestor(0.0f);
                 //rebuilt phylotree using this new root
-                treeCopy=new PhyloTree(new PhyloTreeModel(Np),tree.isRooted());
+                treeCopy=new PhyloTree(new PhyloTreeModel(Np),tree.isRooted(), false);
                 //memorize best placement
                 b_new=Np_p;
                 b_new_p=Np_pp;
@@ -489,6 +498,7 @@ public class PrunedTreeGenerator {
                 Np_pp.add(Np_p);
                 Np_p.setBranchLengthToAncestor(Np_bl+Np_p_bl);
                 b_new=Np_p;
+                b_new_p=null;
                 //detach and get rid of Nx and Np
                 Np.removeFromParent();
                 Np=null;
@@ -506,6 +516,16 @@ public class PrunedTreeGenerator {
             NewickWriter nw=new NewickWriter(Tx);            
             nw.writeNewickTree(treeCopy, true, true, false);  //no internal node names if PAML !
             prunedTrees.add(treeCopy);
+            
+            //SAVE THE EXPECTED PLACEMENT IN A FILE,
+            //which is b_new (and b_new_p if rerooting)
+            
+            //fill the integer list
+            ArrayList<Integer> array=new ArrayList<>();
+            array.add(b_new.getId());
+            if (b_new_p!=null)
+                array.add(b_new_p.getId());
+            expectedPlacements.add(array);
             
             
             ////////////////////////////////////////////////////////////////////
@@ -604,13 +624,20 @@ public class PrunedTreeGenerator {
             
         }
         
+        //after all placements, save expected placements in binary file
+        oos.writeObject(expectedPlacements);
+        oos.writeObject(prunedTrees);
         
-        //closes everything
+        
+        
+        
+        //closes all I/O 
         brDtx.append(nodeDistMatrix);
         brD2tx.append(branchDistMatrix);
         brDtx.close();
         brD2tx.close();
         skippedLogBw.close();
+        oos.close();
                 
     }
     
@@ -815,7 +842,7 @@ public class PrunedTreeGenerator {
         HMMxDir.mkdir();
         //writee a copy of the psiblast2fasta.py script from the jar to the HMMxDir
         File pyScript=new File(HMMxDir.getAbsolutePath()+File.separator+"psiblast2fasta.py");
-        InputStream resourceAsStream = this.getClass().getClassLoader().getResourceAsStream("psiblast2fasta.py");
+        InputStream resourceAsStream = this.getClass().getClassLoader().getResourceAsStream("scripts/psiblast2fasta.py");
         Files.copy(resourceAsStream, pyScript.toPath(), StandardCopyOption.REPLACE_EXISTING);
         resourceAsStream.close();
         Files.setPosixFilePermissions(pyScript.toPath(), perms);
@@ -847,7 +874,7 @@ public class PrunedTreeGenerator {
             //build the hmmbuild command. 1 hmm per experiment
             StringBuilder commandSet=new StringBuilder();
             //commandSet.append("#!/bin/sh\n");
-            commandSet.append(HMMBUILDPath.getAbsolutePath()+" "+hmmOuput.getAbsolutePath()+" "+Ax.getAbsolutePath()+"\n");
+            commandSet.append(HMMBUILDPath.getAbsolutePath()+" --dna "+hmmOuput.getAbsolutePath()+" "+Ax.getAbsolutePath()+"\n");
             
             //build alignments of reads
             List<File> reads=readFiles.get(experimentAlignmentLabel);

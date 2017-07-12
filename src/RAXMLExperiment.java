@@ -33,7 +33,6 @@ import tree.PhyloTree;
  * @author ben
  */
 public class RAXMLExperiment {
-    Long seed=new Long(1);
     
     //workDir
     String HOME = System.getenv("HOME");
@@ -42,22 +41,7 @@ public class RAXMLExperiment {
     //list of new files
     public List<File> prunedAlignmentsFiles=new ArrayList<>(); //list of pruned alignments
     public List<File> prunedTreesFiles=new ArrayList<>(); //list of pruned Trees
-    public File fileDtx=null;
-    public File fileD2tx=null;
-    
-    //read generation: nomral distrib around mean R with sd (R/4)
-    //and min length m
-    int[] R={3,6};
-    int m=2; //let's consider that we have at least 75bp reads
-
-    //set which k/alpha are tested (1 directory created par combination
-    int k=5;
-    int maxK=12;
-    int kIncrement=1;
-    double factor=1.0;
-    double maxFactor=2.0;
-    double factorIncrement=0.1;
-
+   
     //where is EPA 
     File RAxMLBinary=new File(HOME+"/Dropbox/viromeplacer/test_datasets/software/RAxML-8.2.9/raxmlHPC-PTHREADS-SSE3");
 
