@@ -1,26 +1,16 @@
 
-import alignement.Alignment;
-import inputs.FASTAPointer;
-import inputs.Fasta;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileFilter;
-import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import tree.NewickReader;
-import tree.PhyloTree;
 
 /*
  * To change this license header, choose License Headers in Project Properties.

@@ -151,12 +151,12 @@ public class PPLACERExperiment {
             Files.setPosixFilePermissions(qsubEPACommands.toPath(), exp.perms);
             
         } catch (IOException ex) {
-            Logger.getLogger(RAXMLExperiment.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PPLACERExperiment.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
                 fw.close();
             } catch (IOException ex) {
-                Logger.getLogger(RAXMLExperiment.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(PPLACERExperiment.class.getName()).log(Level.SEVERE, null, ex);
             }  
         }
             

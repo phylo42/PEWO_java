@@ -97,8 +97,9 @@ public class JplacerLoader {
                     //System.out.println("bestEdgeJPlaceId:"+bestEdgeJPlaceId);
                     int nodeId=tree.getJplaceMapping(bestEdgeJPlaceId.intValue());
                     bestPlacements.put(n, nodeId);
-                    System.out.println( n+"->jplace:"+bestEdgeJPlaceId+"->phylotree_nodeId:"+nodeId
-                                        +"->phylonode:"+tree.getById(nodeId));
+//                    System.out.println( n+"->jplace:"+bestEdgeJPlaceId+"->phylotree_nodeId:"+nodeId
+//                                        +"->phylonode:"+tree.getById(nodeId));
+                    
                 }
                 
                 

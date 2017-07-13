@@ -281,7 +281,8 @@ public class PrunedTreeGenerator {
         //integer is the nodeId of the node son of b_new
         File expectedPlacementsFile=new File(workDir.getAbsolutePath()+File.separator+"expected_placements.bin");
         ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream(expectedPlacementsFile),4096));
-        ArrayList<ArrayList<Integer>> expectedPlacements=new ArrayList<>();
+        HashMap<Integer,Integer> NxIndex=new HashMap<>(); //map(120,i.e. nx120)=0; map(1142)=1 ; map(5454)=2 ...
+        ArrayList<ArrayList<Integer>> expectedPlacements=new ArrayList<>(); //tab[1]=[124,123] ; tab[2]=[1143] ...
         
         
         //prepare Dtx and D'tx matrices, build their headers
@@ -332,7 +333,7 @@ public class PrunedTreeGenerator {
             System.out.println("selected Nx: x="+i+"  node:"+Nx);
             if (Nx.isRoot()) {
                 skippedLogBw.append("Nx="+i+"\t"+Nx.toString()+"\tIs root, so skipped.\n");
-                System.out.println("SKIPPED: this node is root (id="+nx_id+", no pruning.");
+                System.out.println("SKIPPED: this node is root (id="+nx_id+"), no pruning.");
                 continue;
             }
                         
@@ -387,6 +388,10 @@ public class PrunedTreeGenerator {
             //if reach here, we made Ax tree with more than 3 leaves, this pruning
             // will be effectively operated
             actuallyPrunedNodeIds.add(i);
+            
+            //so let's register this pruning index in the expected_placement.bin
+            //file
+            NxIndex.put(nx_id,actuallyPrunedNodeIds.size()-1);
             
             
             //prepare the corresponding output files
@@ -534,27 +539,57 @@ public class PrunedTreeGenerator {
             //and save it by serialization ?
             nodeDistMatrix.append(Nx.getLabel()+";"+Nx.getId());
             branchDistMatrix.append(Nx.getLabel()+";"+Nx.getId());
+//            System.out.println(Arrays.toString(prunedNodeIds));
+//            System.out.println("Np_p:"+Np_p);
+//            System.out.println("Np_pp:"+Np_pp);
+//            System.out.println("b_new:"+b_new);
             for (int n=0;n<prunedNodeIds.length;n++) {
                 PhyloNode currentNode=treeCopy.getById(prunedNodeIds[n]);
+                //System.out.println("+++++++++++currentNode:"+currentNode);
                 nodeDistMatrix.append(";");
                 branchDistMatrix.append(";");
                 if (currentNode==null) { //this node was pruned
                     nodeDistMatrix.append("-1");
                     branchDistMatrix.append("-1.0");
                     continue;
-                }  else if (currentNode==Np_p) {
+                }  else if (currentNode==b_new) {
+                    //this is b_new itself
+                    //System.out.println("b_new itself, dist=0");
                     nodeDistMatrix.append("0");
                     branchDistMatrix.append("0.0");
-                    //System.out.println("same node!");
+                    continue;
                 } else {
-                    //retrieve path from thiw new edge to all other nodes
+                    //retrieve path from this new edge to all other nodes
                     Path shortestPath = treeCopy.shortestPath(treeCopy.getRoot(), b_new,currentNode);
                     //System.out.println("path: "+shortestPath);
-                    nodeDistMatrix.append(shortestPath.nodeDistance);
+                    
+                    //corrections to node distance
+                    int correctedNodeDistance=shortestPath.nodeDistance;
+                    
+                    //1st correction to node distance:
+                    //added_root comes from forced rooting of the input tree
+                    //and is injected betwen Np' and Np''
+                    //if this triplet is on the path, a correction of -1
+                    //has to be brought to nodeDistance (like if this added_root
+                    //didn't existed)
+                    if ( shortestPath.isWithAddedRoot() && !currentNode.getLabel().equals("added_root")) {
+                        //System.out.println("ADDED_ROOT CORRECTION !");
+                        correctedNodeDistance-=1;
+                    }
+                    //2nd correction to node distance:
+                    //probably useless as added_root should be ignored in 
+                    //distance matrices, but just in case
+                    if ( currentNode.getLabel().equals("added_root")  ) {
+                        //System.out.println("ADDED_ROOT ITSELF CORRECTION !");
+                        correctedNodeDistance-=1;
+                    }
+                    //System.out.println("corrected: "+correctedNodeDistance);
+                    nodeDistMatrix.append(correctedNodeDistance);
+                    
+                    
                     //for the branch ditance, we need to add the distance that
-                    //was separating Np and Np'' if the path startt to go up
+                    //was separating Np and Np'' if the path start to go up
                     //between Np and Np' if the path start to go down
-                    //
                     if (shortestPath.path.get(1).getParent()==Np_pp) {
                         //going up
                         branchDistMatrix.append((shortestPath.branchDistance+Np_bl));
@@ -625,6 +660,7 @@ public class PrunedTreeGenerator {
         }
         
         //after all placements, save expected placements in binary file
+        oos.writeObject(NxIndex);
         oos.writeObject(expectedPlacements);
         oos.writeObject(prunedTrees);
         
@@ -638,7 +674,7 @@ public class PrunedTreeGenerator {
         brD2tx.close();
         skippedLogBw.close();
         oos.close();
-                
+         
     }
     
     
@@ -655,8 +691,13 @@ public class PrunedTreeGenerator {
         nf.setMaximumFractionDigits(1);
         //
         ArrayList<File> workDirs=new ArrayList<>();
+        
+        
+        //all AR reconstructions and viromeplacer DBs in Dx
+        File Dx=new File(workDir.getAbsolutePath()+File.separator+"Dx");
+        Dx.mkdir();
         //File where to save all qsub commands
-        File qSubCommands=new File(workDir+File.separator+"qsub_commands");
+        File qSubCommands=new File(workDir+File.separator+"Dx"+File.separator+"qsub_AR_commands");
         BufferedWriter bw=new BufferedWriter(new FileWriter(qSubCommands));
         
         
@@ -672,9 +713,7 @@ public class PrunedTreeGenerator {
             String experimentTreeLabel=t.getName().split("\\.")[0];
             
             System.out.println("PREPARING ALL DB_BUILDs FOR EXPERIMENT: "+experimentAlignmentLabel);
-            //all AR reconstructions and viromeplacer DBs in Dx
-            File Dx=new File(workDir.getAbsolutePath()+File.separator+"Dx");
-            Dx.mkdir();
+
             //alignment filename is used as default workDir for this experiment
             File expPath=new File(Dx+File.separator+experimentAlignmentLabel);
             System.out.println("Experiment work dir: "+expPath.getAbsolutePath());
@@ -775,36 +814,7 @@ public class PrunedTreeGenerator {
                     if (!linkToRelaxedTreeBinary.exists()) 
                         Files.createSymbolicLink(linkToRelaxedTreeBinary.toPath(), fileRelaxedTreeBinary.toPath());
                     
-//                    if (dirOK) {
-//                        List<String> com=new ArrayList<>();
-//                        //com.add("/usr/bin/java");
-//                        //com.add("-jar");
-//                        //com.add("/home/benclaff/NetBeansProjects/viromeplacer/dist/ViromePlacer.jar");
-//                        //com.add("/media/ben/STOCK/SOURCES/NetBeansProjects/ViromePlacer/dist/ViromePlacer.jar");
-//                        com.add("-m");
-//                        com.add("b");
-//                        com.add("-Ax");
-//                        com.add(new Float(current_alpha).toString());
-//                        com.add("-k");
-//                        com.add(new Integer(current_k).toString());
-//                        com.add("-Tx");
-//                        com.add(prunedTreesFiles.get(i).getAbsolutePath());
-//                        com.add("-i");
-//                        com.add(prunedAlignmentsFiles.get(i).getAbsolutePath());
-//                        com.add("-w");
-//                        com.add(combDir.getAbsolutePath());
-//                        com.add("-v");
-//                        com.add("0");
-//                        String[] arguments = new String[com.size()];
-//                        arguments = com.toArray(arguments);
-//                        //Main_v2.main(arguments);
-//
-//                        //DBGeneration(fw,current_k,(float)current_alpha);
-//                        System.gc();
-//                    } else {
-//                        System.out.println("AR reconstruction directory could not be created: "+combDir.getAbsolutePath());
-//                        System.exit(1);
-//                    }
+
                     
                 }
 

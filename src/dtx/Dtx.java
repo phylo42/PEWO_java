@@ -22,9 +22,9 @@ import java.util.logging.Logger;
 public class Dtx {
 
     //access to correct Dtx line through node Label
-    HashMap<String, Integer> pruningLabels=new HashMap<>(); //map(labelPruned)=dataLineIndex
+    HashMap<String, Integer> pruningLabels=new HashMap<>(); //map(prunedNodeLabel)=dataLineIndex
     //access to correct Dtx line through node id
-    HashMap<Integer, Integer> pruningIds=new HashMap<>();  //map(nodePruned)=dataLineIndex
+    HashMap<Integer, Integer> pruningIds=new HashMap<>();  //map(prunedNodeId)=dataLineIndex
     
     HashMap<String,Integer> colLabels=new HashMap<>(); //map(label)=dataColIndex
     HashMap<Integer,Integer>  colIds=new HashMap<>();  //map(nodeId)=dataColIndex
