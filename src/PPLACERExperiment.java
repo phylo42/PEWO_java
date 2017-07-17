@@ -33,7 +33,7 @@ public class PPLACERExperiment {
     public List<File> prunedTreesFiles=new ArrayList<>(); //list of pruned Trees
    
     //where where are taxit and pplacer  
-    File TAXITBinary=new File(HOME+"/Dropbox/viromeplacer/test_datasets/software/pplacer-Linux-v1.1.alpha18-2-gcb55169/taxtastic/taxit");
+    //File TAXITBinary=new File(HOME+"/Dropbox/viromeplacer/test_datasets/software/pplacer-Linux-v1.1.alpha18-2-gcb55169/taxtastic/taxit");
     File PPLACERBinary=new File(HOME+"/Dropbox/viromeplacer/test_datasets/software/pplacer-Linux-v1.1.alpha18-2-gcb55169/pplacer");
     
     //stats files, required by taxit
@@ -57,7 +57,7 @@ public class PPLACERExperiment {
         
         FileWriter fw=null;
         try {
-            System.out.println("ARGS: workDir PPLACERBinary TAXITBinary statisticFile(ex:RAxML_info_xxx)");
+            System.out.println("ARGS: workDir PPLACERBinary #rm#TAXITBinary statisticFile(ex:RAxML_info_xxx)");
             
             //launch
             PPLACERExperiment exp=new PPLACERExperiment();
@@ -66,11 +66,11 @@ public class PPLACERExperiment {
             if(args.length>0) {
                 exp.workDir=new File(args[0]);
                 exp.PPLACERBinary=new File(args[1]);
-                exp.TAXITBinary=new File(args[2]);
-                exp.statFile=new File(args[3]);
+                //exp.TAXITBinary=new File(args[2]);
+                exp.statFile=new File(args[2]);
                 System.out.println("workDir: "+exp.workDir);
                 System.out.println("PPLACERBinary: "+exp.PPLACERBinary);
-                System.out.println("TAXITBinary: "+exp.TAXITBinary);
+                //System.out.println("TAXITBinary: "+exp.TAXITBinary);
                 System.out.println("statFile: "+exp.statFile);
             }  
             
@@ -113,9 +113,11 @@ public class PPLACERExperiment {
                 File script=new File(PPLxAxDir.getAbsolutePath()+File.separator+"pplacer_pipeline.sh");
                 FileWriter fwScript=new FileWriter(script);
                 StringBuilder sbPPlacerCommands=new StringBuilder();
+                //load anaconda environment (python environement where package taxtastic is installed)
+                sbPPlacerCommands.append("source /auto/pulicani/miniconda3/bin/activate benj\n");
                 //create pplacer database from this pruned alignment/tree
                 //example:  taxit create -P ./basic -l basic -f ../basic.aln -t ../RAxML_bestTree.basic_tree -s ../RAxML_info.basic_tree 
-                sbPPlacerCommands.append(  exp.TAXITBinary.getAbsolutePath()+" create" +
+                sbPPlacerCommands.append(   "taxit create" +
                                         " -P " +PPLxAxDir.getAbsolutePath()+File.separator+"refpkg" +
                                         " -l locus" +
                                         " -f " + exp.prunedAlignmentsFiles.get(i).getAbsolutePath() +
@@ -136,6 +138,8 @@ public class PPLACERExperiment {
                                             "\n"
                     );
                 }
+                //vire l'env python
+                sbPPlacerCommands.append("source deactivate\n");
                 //put these commands in a file
                 fwScript.append(sbPPlacerCommands);
                 fwScript.close();

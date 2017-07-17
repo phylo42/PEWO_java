@@ -67,7 +67,7 @@ public class PrunedTreeGenerator {
     //nodes selected for pruning at this launch
     Integer[] prunedNodeIds=null;
     //nodes effectively pruned because didn'Tx produce tre of less than 4 leaves
-    ArrayList<Integer> actuallyPrunedNodeIds=new ArrayList<>();
+    ArrayList<Integer> actuallyPrunedNodeIdsIndexes=new ArrayList<>();
     
     //list of new files
     public ArrayList<File> prunedAlignmentsFiles=new ArrayList<>(); //list of pruned alignments
@@ -79,7 +79,7 @@ public class PrunedTreeGenerator {
     public File fileD2tx=null;
     
     //pruning percent
-    double percentPruning=1.0; //10%
+    double percentPruning=0.5; //10%
 
     //read generation: nomral distrib around mean R with sd (R/4)
     //and min length m
@@ -261,15 +261,16 @@ public class PrunedTreeGenerator {
         
         //get list of internal Nx ids
         Integer[] nodeIds=new Integer[tree.getNodeIdsByDFS().size()];
-        tree.getNodeIdsByDFS().toArray(nodeIds);
+        System.out.println("This tree contains "+nodeIds.length+" nodeIds.");
         //shuffle their order
         shuffleArray(nodeIds);
         //define first x% as pruning experiments
         prunedNodeIds=Arrays.copyOfRange(nodeIds, 0, new Double(percentPruning*nodeIds.length).intValue());
-        System.out.println("pruning experiments: "+prunedNodeIds.length);
-        System.out.println("prunedNodeIds: "+Arrays.toString(prunedNodeIds));
+        System.out.println("# pruning attempts: "+prunedNodeIds.length);
+        System.out.println("prunedNodeIds, selected for pruning attempts (raw): "+Arrays.toString(prunedNodeIds));
         //sort to make more comprehensive output matrices Dtx and D'tx
         Arrays.sort(prunedNodeIds);
+        System.out.println("prunedNodeIds, selected for pruning attempts (ordered): "+Arrays.toString(prunedNodeIds));
 
         //log registering all skipped Nx, and the reason
         File skippedLog=new File(workDir+File.separator+"SKIPPED_Nx");
@@ -278,7 +279,7 @@ public class PrunedTreeGenerator {
         //write in a binary file the pruned tree and the expected placement,
         //that is the branch b_new (and b_new_p if rerooting), see algo below.
         //expected placement is saved through an integer array of 1 or 2 elements
-        //integer is the nodeId of the node son of b_new
+        //integer is the n of the node son of b_new
         File expectedPlacementsFile=new File(workDir.getAbsolutePath()+File.separator+"expected_placements.bin");
         ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream(expectedPlacementsFile),4096));
         HashMap<Integer,Integer> NxIndex=new HashMap<>(); //map(120,i.e. nx120)=0; map(1142)=1 ; map(5454)=2 ...
@@ -292,15 +293,13 @@ public class PrunedTreeGenerator {
         BufferedWriter brD2tx=new BufferedWriter(new FileWriter(fileD2tx));
         StringBuilder nodeDistMatrix=new StringBuilder();
         StringBuilder branchDistMatrix=new StringBuilder();
-        int matrixSize=tree.getNodeCount();
-        System.out.println("Dtx size (x,y): "+matrixSize+","+prunedNodeIds.length);
         nodeDistMatrix.append("nodeLabels;");
-        for (int nodeId=0;nodeId<tree.getNodeCount();nodeId++)
-            nodeDistMatrix.append(";"+tree.getById(nodeId).getLabel());
+        for (int n=0;n<nodeIds.length;n++)
+            nodeDistMatrix.append(";"+tree.getById(nodeIds[n]).getLabel());
         nodeDistMatrix.append("\n");
         nodeDistMatrix.append(";nodeIds");
-        for (int nodeId=0;nodeId<tree.getNodeCount();nodeId++)
-            nodeDistMatrix.append(";"+nodeId);
+        for (int n=0;n<nodeIds.length;n++)
+            nodeDistMatrix.append(";"+nodeIds[n]);
         nodeDistMatrix.append("\n");
         branchDistMatrix.append(new String(nodeDistMatrix)); //simple contructor copy
         
@@ -309,11 +308,11 @@ public class PrunedTreeGenerator {
         //launch pruning for each selected Nx
         for (int i = 0; i < prunedNodeIds.length; i++) {
             Integer nx_id = prunedNodeIds[i];
-            System.out.println("--------------------------------------");
-            System.out.println("copying tree and alignment before pruning...");
+            //System.out.println("--------------------------------------");
+            //System.out.println("copying tree and alignment before pruning...");
             PhyloNode rootCopy=tree.getRoot().copy();
             PhyloTree treeCopy=new PhyloTree(new PhyloTreeModel(rootCopy),tree.isRooted(), false);;
-            System.out.println("indexing tree ...");
+            //System.out.println("indexing tree ...");
             treeCopy.initIndexes();
 //            //some checkup about the original  copy
 //            System.out.println("Tree; #nodes="+treeCopy.getNodeCount());
@@ -325,7 +324,7 @@ public class PrunedTreeGenerator {
 //            }
             //copying alignment
             Alignment alignCopy=align.copy();
-            System.out.println("Starting pruning...");
+            //System.out.println("Starting pruning...");
             
             //current root Nx defining the pruned clade
             PhyloNode Nx= treeCopy.getById(nx_id);
@@ -387,11 +386,11 @@ public class PrunedTreeGenerator {
             
             //if reach here, we made Ax tree with more than 3 leaves, this pruning
             // will be effectively operated
-            actuallyPrunedNodeIds.add(i);
+            actuallyPrunedNodeIdsIndexes.add(i);
             
             //so let's register this pruning index in the expected_placement.bin
             //file
-            NxIndex.put(nx_id,actuallyPrunedNodeIds.size()-1);
+            NxIndex.put(nx_id,actuallyPrunedNodeIdsIndexes.size()-1);
             
             
             //prepare the corresponding output files
@@ -537,23 +536,26 @@ public class PrunedTreeGenerator {
             //third, build Dtx and D'tx line corresponding to this pruning
             //note: for very big trees, should build that as an object
             //and save it by serialization ?
+        
             nodeDistMatrix.append(Nx.getLabel()+";"+Nx.getId());
-            branchDistMatrix.append(Nx.getLabel()+";"+Nx.getId());
+            branchDistMatrix.append(Nx.getLabel()+";"+Nx.getId());  //TODO: this still contains errors (dist X0 to neighboor node not taken into account for node)... use nodeDist for now
 //            System.out.println(Arrays.toString(prunedNodeIds));
 //            System.out.println("Np_p:"+Np_p);
 //            System.out.println("Np_pp:"+Np_pp);
 //            System.out.println("b_new:"+b_new);
-            for (int n=0;n<prunedNodeIds.length;n++) {
-                PhyloNode currentNode=treeCopy.getById(prunedNodeIds[n]);
+            //using the nodeIds table, Dtx column order will match the
+            //shuffled nodeIds, like this the first xx% correspond to the
+            //pruned nodes. we could have used tree.getNodeIdsByDFS() too.
+            for (int n=0;n<nodeIds.length;n++) {
+                PhyloNode currentNode=treeCopy.getById(nodeIds[n]);
                 //System.out.println("+++++++++++currentNode:"+currentNode);
                 nodeDistMatrix.append(";");
                 branchDistMatrix.append(";");
-                if (currentNode==null) { //this node was pruned
+                if (currentNode==null) { //this node was pruned, so absent from treeCopy
                     nodeDistMatrix.append("-1");
                     branchDistMatrix.append("-1.0");
                     continue;
-                }  else if (currentNode==b_new) {
-                    //this is b_new itself
+                }  else if (currentNode==b_new) {//this is b_new itself, all dist=0
                     //System.out.println("b_new itself, dist=0");
                     nodeDistMatrix.append("0");
                     branchDistMatrix.append("0.0");
@@ -623,19 +625,31 @@ public class PrunedTreeGenerator {
                     readFiles.put(experimentAlignmentLabel,new ArrayList<File>(R.length));
                 readFiles.get(experimentAlignmentLabel).add(Rxj);
                        
-                        
                 FileWriter fw=new FileWriter(Rxj);
                 int r = R[j];
                 for (Iterator<Fasta> it = leavesRemoved.iterator(); it.hasNext();) {
                     Fasta next = it.next();
                     String seqNoGaps=next.getSequence(true);
-                    //select Ax normally distibuted read length
-                    ThreadLocalRandom randomGenerator = ThreadLocalRandom.current();
-                    int v_length = new Double(r+Math.floor(randomGenerator.nextGaussian()*r/4)).intValue();
+                    //select normally distibuted read length v_length
+                    //centered around R[j] and with standard dev of r/4
+                    //mySample = r.nextGaussian()*desiredStandardDeviation+desiredMean
+                    //The mean of the sample point is 0, and the standard deviation is 1;
+                    //that means that the original sample is also its own z-score.
+                    //absolute value of z represents the distance between
+                    //the raw score and the population mean in units of the
+                    //standard deviation.
+                    //The formula is z=(x-mean)/stdev, so with the default values z=x.
+                    //If we wanted to retain the z score for the sample but
+                    //change the mean and stdev: 
+                    //z*stdev + mean = x' where z=x, and x' represents
+                    //the sample from the distribution with the desired mean
+                    //and standard deviation.
+                    Random rand = new Random(seed);
+                    int v_length = new Double(r+rand.nextGaussian()*(new Double(r)/4.0)).intValue();
                     //System.out.println(v_length);
                     if (v_length>=m && v_length<seqNoGaps.length()) {
-                        //select an uniformely distibution position
-                        int p=randomGenerator.nextInt(0, seqNoGaps.length()-v_length);
+                        //select an uniformely distibution position in [0,seqLength-v_length]
+                        int p=rand.nextInt(seqNoGaps.length()-v_length+1);//this is an exclusive upper bound, so +1 to includelast possibility
                         String read=next.getSequence(true).substring(p, p+v_length);
                         Fasta n=new Fasta(next.getHeader()+"_r"+R[j]+"_"+p+"_"+(p+v_length-1), read);
                         fw.append(n.getFormatedFasta()+"\n");
@@ -658,6 +672,16 @@ public class PrunedTreeGenerator {
             
             
         }
+        
+        
+        System.out.println("############################################");
+        System.out.println("# Actually pruned:"+actuallyPrunedNodeIdsIndexes.size());
+        System.out.println("Actually pruned (prunedNodeIds indexes):"+actuallyPrunedNodeIdsIndexes);
+        System.out.println("Will be stared in expect_placement.bin such as");
+        System.out.println("NxIndex map(nodeId)=index: "+NxIndex);
+        System.out.println("Dtx and D'tx size (x,y): "+nodeIds.length+","+NxIndex.size());
+        System.out.println("############################################");
+        
         
         //after all placements, save expected placements in binary file
         oos.writeObject(NxIndex);
@@ -704,8 +728,8 @@ public class PrunedTreeGenerator {
         
         
         //launch pruning for each selected Nx
-        for (int i = 0; i < actuallyPrunedNodeIds.size(); i++) {
-            Integer nx_id = actuallyPrunedNodeIds.get(i);
+        for (int i = 0; i < actuallyPrunedNodeIdsIndexes.size(); i++) {
+            Integer nx_id = actuallyPrunedNodeIdsIndexes.get(i);
             File a=prunedAlignmentsFiles.get(i);
             File t=prunedTreesFiles.get(i);
             
@@ -859,8 +883,8 @@ public class PrunedTreeGenerator {
 
         
         //launch pruning for each selected Nx
-        for (int i = 0; i < actuallyPrunedNodeIds.size(); i++) {
-            Integer nx_id = actuallyPrunedNodeIds.get(i);
+        for (int i = 0; i < actuallyPrunedNodeIdsIndexes.size(); i++) {
+            Integer nx_id = actuallyPrunedNodeIdsIndexes.get(i);
             File Ax=prunedAlignmentsFiles.get(i);
             File Tx=prunedTreesFiles.get(i);
             String experimentAlignmentLabel=Ax.getName().split("\\.")[0];

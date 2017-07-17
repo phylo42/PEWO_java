@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
  *
  * @author ben
  */
-public class RAXMLExperiment {
+public class EPAExperiment {
     
     //workDir
     String HOME = System.getenv("HOME");
@@ -55,7 +55,7 @@ public class RAXMLExperiment {
             System.out.println("ARGS: workDir RAxMLBinary");
             
             //launch
-            RAXMLExperiment exp=new RAXMLExperiment();
+            EPAExperiment exp=new EPAExperiment();
             //LOAD ALL EXPERIMENTS FOUND IN WORK DIR
             ///////////////////////////////////////////////////
             if(args.length>0) {
@@ -124,12 +124,12 @@ public class RAXMLExperiment {
             Files.setPosixFilePermissions(qsubEPACommands.toPath(), exp.perms);
             
         } catch (IOException ex) {
-            Logger.getLogger(RAXMLExperiment.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(EPAExperiment.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
                 fw.close();
             } catch (IOException ex) {
-                Logger.getLogger(RAXMLExperiment.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(EPAExperiment.class.getName()).log(Level.SEVERE, null, ex);
             }  
         }
             
