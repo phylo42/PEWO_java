@@ -1,6 +1,7 @@
 
 import java.io.File;
 import java.io.FileWriter;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -9,6 +10,8 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -86,16 +89,24 @@ public class RAPPASExperiment {
             File DxDir=new File(exp.workDir.getCanonicalPath()+File.separator+"Dx");
             File DxA0Dir=new File(exp.workDir.getCanonicalPath()+File.separator+"Dx"+File.separator+firstExperimentLabel);
             File[] listFiles = DxA0Dir.listFiles();
-            ArrayList<File> kAlphaDirs=new ArrayList<>();
-            ArrayList<String> kAlphaDirsNames=new ArrayList<>();
+            HashMap<Integer,Boolean> kmap=new HashMap<>();
+            HashMap<Float,Boolean> alphamap=new HashMap<>();
             for (int i = 0; i < listFiles.length; i++) {
                 File kAlphaDir = listFiles[i];
                 if (kAlphaDir.getName().startsWith("k")) {
-                    kAlphaDirs.add(kAlphaDir);
-                    kAlphaDirsNames.add(kAlphaDir.getName());
+                    int k=Integer.parseInt(kAlphaDir.getName().split("_")[0].substring(1));
+                    float alpha=Float.parseFloat(kAlphaDir.getName().split("_")[1].substring(1));
+                    kmap.put(k, true);
+                    alphamap.put(alpha, true);
                 }
             }
-            System.out.println(kAlphaDirsNames);
+            //convert to list to order 
+            List<Integer> allK=kmap.keySet().stream().sorted().collect(Collectors.toList());
+            List<Float> allAlpha=alphamap.keySet().stream().sorted().collect(Collectors.toList());
+            
+            //make a dir for qsub logs in Dx
+            File qSubLogs=new File(DxDir.getAbsolutePath()+File.separator+"qsub_logs");
+            qSubLogs.mkdir();
             
             ////////////////////////////////////////////////////////////////
             //first build build_db commands
@@ -108,30 +119,35 @@ public class RAPPASExperiment {
                 File Ax = exp.prunedAlignmentsFiles.get(i);
                 File Tx = exp.prunedTreesFiles.get(i);
                 String experimentLabel=Ax.getName().split("\\.")[0];
-                for (int j = 0; j < kAlphaDirsNames.size(); j++) {
-                    String  DxAxKAlphaDirName= kAlphaDirsNames.get(j);
-                    File  DxAxKAlphaDir= kAlphaDirs.get(j);
-                    int k=Integer.valueOf( DxAxKAlphaDirName.split("_")[0].substring(1) );
-                    float alpha=Float.valueOf( DxAxKAlphaDirName.split("_")[1].substring(1) );
-                    System.out.println("db_build for k="+k+" alpha="+alpha+" in "+experimentLabel);
+                for (Iterator<Integer> iterator = allK.iterator(); iterator.hasNext();) {
+                    Integer k = iterator.next();
                     
-                    StringBuilder sb=new StringBuilder();
-                    sb.append("/usr/bin/java -jar "+exp.RAPPAJar.getAbsolutePath()+" ");
-                    sb.append("-m b -a "+new Float(alpha).toString()+" -k "+new Integer(k).toString()+" ");
-                    sb.append("-t "+Tx.getAbsolutePath()+" ");
-                    sb.append("-i "+Ax.getAbsolutePath()+" ");
-                    sb.append("-w "+DxAxKAlphaDir+" ");
-                    sb.append("--ardir "+DxAxKAlphaDir+File.separator+"AR ");
-                    sb.append("--extree "+DxAxKAlphaDir+File.separator+"extended_trees ");
-                    sb.append("-v 1 ");
-                    sb.append("--skipdbfull");
+                    for (Iterator<Float> iterator1 = allAlpha.iterator(); iterator1.hasNext();) {
+                        Float alpha = iterator1.next();
 
-                    //execute script through qsub
-                    /*sbPLACEMENTCommands.append(  "echo \""+sb.toString()+"\" |" +
-                                            " qsub -N RAPx_"+experimentLabel+"_k"+k+"_a"+alpha+
-                                            " -wd "+DxAxKAlphaDir.getAbsolutePath()+"\n");*/
-                    sbDBBUILDCommands.append(sb.toString()+"\n");
-                    commandCount++;
+                        String  kAlphaDirName= "k"+k+"_a"+alpha;
+                        File  DxAxKAlphaDir= new File(DxDir.getAbsolutePath()+File.separator+experimentLabel+File.separator+kAlphaDirName);
+                        System.out.println("db_build for k="+k+" alpha="+alpha+" in "+experimentLabel+"/"+DxAxKAlphaDir.getName());
+
+                        StringBuilder sb=new StringBuilder();
+                        sb.append("/usr/bin/java -Xmx18000m -Xms6000m -jar "+exp.RAPPAJar.getAbsolutePath()+" ");
+                        sb.append("-m b -a "+new Float(alpha).toString()+" -k "+new Integer(k).toString()+" ");
+                        sb.append("-t "+Tx.getAbsolutePath()+" ");
+                        sb.append("-i "+Ax.getAbsolutePath()+" ");
+                        sb.append("-w "+DxAxKAlphaDir+" ");
+                        sb.append("--ardir "+DxAxKAlphaDir+File.separator+"AR ");
+                        //sb.append("--extree "+DxAxKAlphaDir+File.separator+"extended_trees "); //TODO: currently raise bugs, ids mappings problems...
+                        sb.append("-v 1 ");
+                        sb.append("--skipdbfull ");
+                        //sb.append("--froot"); //not necessary, as trees from Tx directory should already be rooted and with added_root node
+
+                        //execute script through qsub
+                        /*sbPLACEMENTCommands.append(  "echo \""+sb.toString()+"\" |" +
+                                                " qsub -N RAPx_"+experimentLabel+"_k"+k+"_a"+alpha+
+                                                " -wd "+DxAxKAlphaDir.getAbsolutePath()+"\n");*/
+                        sbDBBUILDCommands.append(sb.toString()+"\n");
+                        commandCount++;
+                    }
                 } 
             }
             //write this buffer in a file
@@ -142,7 +158,7 @@ public class RAPPASExperiment {
             Files.setPosixFilePermissions(dbbuild_commands.toPath(), exp.perms);
             
             //then write qsub array shell script in the working directory
-            File shScript=new File(DxDir.getAbsolutePath()+File.separator+"array_loader_dbbuild-q .sh");
+            File shScript=new File(DxDir.getAbsolutePath()+File.separator+"array_loader_dbbuild.sh");
             InputStream resourceAsStream = exp.getClass().getClassLoader().getResourceAsStream("scripts/array_loader_dbbuild.sh");
             Files.copy(resourceAsStream, shScript.toPath(), StandardCopyOption.REPLACE_EXISTING);
             resourceAsStream.close();
@@ -152,7 +168,7 @@ public class RAPPASExperiment {
             //ex: qsub -t 1-100 ./qsub_array_loader.sh /ngs/linard/tests_accuracy/pplacer_16s/Dx 
             File qsubCommand=new File(DxDir.getAbsolutePath()+File.separator+"qsub_rappas_dbbuild");
             fw=new FileWriter(qsubCommand);
-            fw.append("qsub -t 1-"+commandCount+" -e "+DxDir.getAbsolutePath()+" -o "+DxDir.getAbsolutePath()+" "+shScript.getAbsolutePath()+" "+DxDir.getAbsolutePath());
+            fw.append("qsub -t 1-"+commandCount+" -e "+qSubLogs.getAbsolutePath()+" -o "+qSubLogs.getAbsolutePath()+" "+shScript.getAbsolutePath()+" "+DxDir.getAbsolutePath());
             fw.close();            
             Files.setPosixFilePermissions(qsubCommand.toPath(), exp.perms);
             
@@ -168,30 +184,35 @@ public class RAPPASExperiment {
                 File Ax = exp.prunedAlignmentsFiles.get(i);
                 File Tx = exp.prunedTreesFiles.get(i);
                 String experimentLabel=Ax.getName().split("\\.")[0];
-                for (int j = 0; j < kAlphaDirsNames.size(); j++) {
-                    String  DxAxKAlphaDirName= kAlphaDirsNames.get(j);
-                    File  DxAxKAlphaDir= kAlphaDirs.get(j);
-                    int k=Integer.valueOf( DxAxKAlphaDirName.split("_")[0].substring(1) );
-                    float alpha=Float.valueOf( DxAxKAlphaDirName.split("_")[1].substring(1) );
-                    System.out.println("placement for k="+k+" alpha="+alpha+" in "+experimentLabel);
-                    
-                    StringBuilder sb=new StringBuilder();
-                    sb.append("/usr/bin/java -jar "+exp.RAPPAJar.getAbsolutePath()+" ");
-                    sb.append("-m p ");
+                //list Rx files corresponding to this Ax
+                File RxDir=new File(exp.workDir.getCanonicalPath()+File.separator+"Rx");
+                listFiles = RxDir.listFiles((File dir, String name) -> name.startsWith("R"+experimentLabel.substring(1))); //(A->R)XX_nxXXX
+                System.out.println("list"+Arrays.toString(listFiles));
+                for (Iterator<Integer> iterator = allK.iterator(); iterator.hasNext();) {
+                    Integer k = iterator.next();
+                    for (Iterator<Float> iterator1 = allAlpha.iterator(); iterator1.hasNext();) {
+                        Float alpha = iterator1.next();
 
-                    sb.append("-w "+DxAxKAlphaDir+" ");
-                    sb.append("-v 1 ");
-                    
-                    //TODO: add this command: 
-                    //java -jar ../rappas/ViromePlacer.jar -m p -q Rx/R0_nx110_la_r150.fasta -d Dx/A0_nx110_la/k5_a1.0/*.medium -w Dx/A0_nx110_la/k5_a1.0/ -v 1
-                    
+                        String  kAlphaDirName= "k"+k+"_a"+alpha;
+                        File  DxAxKAlphaDir= new File(DxDir.getAbsolutePath()+File.separator+experimentLabel+File.separator+kAlphaDirName);
+                        System.out.println("placement for k="+k+" alpha="+alpha+" in "+experimentLabel+"/"+DxAxKAlphaDir.getName());
 
-                    //execute script through qsub
-                    /*sbPLACEMENTCommands.append(  "echo \""+sb.toString()+"\" |" +
-                                            " qsub -N RAPx_"+experimentLabel+"_k"+k+"_a"+alpha+
-                                            " -wd "+DxAxKAlphaDir.getAbsolutePath()+"\n");*/
-                    sbPLACEMENTCommands.append(sb.toString()+"\n");
-                    commandCount++;
+                        for (int j = 0; j < listFiles.length; j++) {
+                            File RxFile = listFiles[j];
+                            StringBuilder sb=new StringBuilder();
+                            sb.append("/usr/bin/java -jar "+exp.RAPPAJar.getAbsolutePath()+" ");
+                            sb.append("-m p ");
+                            sb.append("-w "+DxAxKAlphaDir+" ");
+                            sb.append("-d "+DxAxKAlphaDir.getAbsolutePath()+File.separator+"*.medium ");
+                            sb.append("-q "+RxFile.getAbsolutePath()+" ");
+                            sb.append("-v 1\n");
+                            //example: this command
+                            //java -jar ../rappas/ViromePlacer.jar -m p -q Rx/R0_nx110_la_r150.fasta -d Dx/A0_nx110_la/k5_a1.0/*.medium -w Dx/A0_nx110_la/k5_a1.0/ -v 1
+                            sbPLACEMENTCommands.append(sb.toString());
+                        }
+
+                        commandCount++;
+                    }
                 } 
             }
             //write this buffer in a file
@@ -212,7 +233,7 @@ public class RAPPASExperiment {
             //ex: qsub -t 1-100 ./qsub_array_loader.sh /ngs/linard/tests_accuracy/pplacer_16s/Dx 
             qsubCommand=new File(DxDir.getAbsolutePath()+File.separator+"qsub_rappas_placement");
             fw=new FileWriter(qsubCommand);
-            fw.append("qsub -t 1-"+commandCount+" -e "+DxDir.getAbsolutePath()+" -o "+DxDir.getAbsolutePath()+" "+shScript.getAbsolutePath()+" "+DxDir.getAbsolutePath());
+            fw.append("qsub -t 1-"+commandCount+" -e "+qSubLogs.getAbsolutePath()+" -o "+qSubLogs.getAbsolutePath()+" "+shScript.getAbsolutePath()+" "+DxDir.getAbsolutePath());
             fw.close();            
             Files.setPosixFilePermissions(qsubCommand.toPath(), exp.perms);
             

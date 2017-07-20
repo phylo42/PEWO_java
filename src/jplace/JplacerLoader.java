@@ -72,6 +72,7 @@ public class JplacerLoader {
                 JSONObject pObject= (JSONObject)placements.get(i);
                 //take best placement (1st in list)
                 JSONArray pFields=(JSONArray)((JSONArray)pObject.get("p")).get(0);
+                //System.out.println(pFields);
                 //best edge
                 //System.out.println(pFields.get(edgeIdIndex)+" "+pFields.get(edgeIdIndex).getClass());
                 Long bestEdgeJPlaceId=(Long)pFields.get(edgeIdIndex);
@@ -84,7 +85,7 @@ public class JplacerLoader {
                     isNm=false;
                     pNm=(JSONArray)pObject.get("n");
                 }
-                System.out.println("isNm:"+isNm);
+                //System.out.println("isNm:"+isNm);
 
                 for (int j = 0; j < pNm.size(); j++) {
                     String n=null;
@@ -97,8 +98,8 @@ public class JplacerLoader {
                     //System.out.println("bestEdgeJPlaceId:"+bestEdgeJPlaceId);
                     int nodeId=tree.getJplaceMapping(bestEdgeJPlaceId.intValue());
                     bestPlacements.put(n, nodeId);
-//                    System.out.println( n+"->jplace:"+bestEdgeJPlaceId+"->phylotree_nodeId:"+nodeId
-//                                        +"->phylonode:"+tree.getById(nodeId));
+                    //System.out.println( n+"->jplace:"+bestEdgeJPlaceId+"->phylotree_nodeId:"+nodeId
+                    //                    +"->phylonode:"+tree.getById(nodeId));
                     
                 }
                 
@@ -137,8 +138,8 @@ public class JplacerLoader {
     
     public static void main(String[] args) {
         //tests
-        File test=new File("/home/ben/Dropbox/viromeplacer/test_datasets/accuracy_tests/6_leaves_test_set/EPAx/A0_nx0_laW/RAxML_portableTree.R0_nx0_laW_r3.jplace");
-        File test2=new File("/home/ben/Dropbox/viromeplacer/test_datasets/accuracy_tests/6_leaves_test_set/PPLx/A0_nx0_laW/R0_nx0_laW_r3.aln.jplace");
+        File test=new File("/home/ben/Downloads/placementsR0_nx110_la_r300.fasta.jplace");
+        File test2=new File("/home/ben/Downloads/placementsR0_nx110_la_r150.fasta.jplace");
         JplacerLoader jl=new JplacerLoader(test);
         System.out.println("##############");
         JplacerLoader jl2=new JplacerLoader(test2);

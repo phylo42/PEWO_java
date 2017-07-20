@@ -25,6 +25,7 @@ import java.util.EnumSet;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
@@ -90,12 +91,12 @@ public class PrunedTreeGenerator {
     int k=5;
     int maxK=12;
     int kIncrement=1;
-    double factor=1.0;
-    double maxFactor=2.0;
-    double factorIncrement=0.1;
+    float factor=1.0f;
+    float maxFactor=2.0f;
+    float factorIncrement=0.1f;
     
     //set the critera for branch injection
-    float minBranchLength=-1.0f;
+    float minBranchLength=-1.0f; //basically all branches, of all length (even 0)
     int branchPerLength=1;
     
     //AR program
@@ -198,9 +199,11 @@ public class PrunedTreeGenerator {
             String line=null;
             String treeString=null;
             while((line=br.readLine())!=null) {treeString=line;}
+            System.out.println("Force tree rooting");
             PhyloTree tree = NewickReader.parseNewickTree2(treeString, true, false);
             tree.initIndexes();
             System.out.println("Original tree, # nodes: "+tree.getNodeCount());
+            System.out.println("Is rooted: "+tree.isRooted());
             //tree.displayTree();
             
             
@@ -226,7 +229,7 @@ public class PrunedTreeGenerator {
             //      build AR command, without execution
             //      prepare script which launch these using SGE (qsub)  
             ///////////////////////////////////////////////////
-            ptg.prepareARcommands(ptg.workDir);
+            ptg.prepareExtendedTreeAndARcommands(ptg.workDir);
             System.out.println("BUILD OF ALL DB (different k/alpha) DONE !");
             
             
@@ -707,7 +710,7 @@ public class PrunedTreeGenerator {
      * @param workDir 
      * @throws IOException 
      */
-    private void prepareARcommands(File workDir) throws IOException {
+    private void prepareExtendedTreeAndARcommands(File workDir) throws IOException {
 
         //to ensure consistent direcory names (alpha-> _ax_)
         NumberFormat nf = NumberFormat.getNumberInstance();
@@ -736,7 +739,7 @@ public class PrunedTreeGenerator {
             String experimentAlignmentLabel=a.getName().split("\\.")[0];
             String experimentTreeLabel=t.getName().split("\\.")[0];
             
-            System.out.println("PREPARING ALL DB_BUILDs FOR EXPERIMENT: "+experimentAlignmentLabel);
+            System.out.println("PREPARING EXTENDED TREE/ALL DB_BUILDs FOR EXPERIMENT: "+experimentAlignmentLabel);
 
             //alignment filename is used as default workDir for this experiment
             File expPath=new File(Dx+File.separator+experimentAlignmentLabel);
@@ -766,11 +769,12 @@ public class PrunedTreeGenerator {
             System.out.println(experimentAlign.describeAlignment(false));
             //load tree of this experiment
             PhyloTree experimentTree = prunedTrees.get(i); //indexes already init at creation
-            System.out.println("Experiment tree, # nodes: "+experimentTree.getNodeCount());            
+            System.out.println("Experiment tree, # nodes: "+experimentTree.getNodeCount());
+            System.out.println("Is rooted?: "+experimentTree.isRooted());
             //build the extended trees first and save them in the extended_trees directory
             //these will be used in the AR below
-            System.out.println("Loading extended tree from binary version.");
-            ExtendedTree experimentExtendedTrees = buildExtendedTrees(extendedTreeDir, experimentAlign, experimentTree);
+            System.out.println("Create extended tree and save newick/fasta/phylip/bin.");
+            buildExtendedTrees(extendedTreeDir, experimentAlign, experimentTree);
             
             
             
@@ -786,22 +790,20 @@ public class PrunedTreeGenerator {
             //create correpsonding directory        
             File ARDir=new File(workDir.getAbsolutePath()+File.separator+"Dx"+File.separator+experimentAlignmentLabel+File.separator+"AR");
             ARDir.mkdir();
-            System.out.println("   AR in: "+ARDir.getAbsolutePath());
+            System.out.println("Build AR commands in: "+ARDir.getAbsolutePath());
             ARProcessLauncher arpl=new ARProcessLauncher(ARProcessLauncher.AR_PAML, ARExecutablePath, false);
             
             //prepare corresponding AR commands (with PAML)
             String ARCommand = arpl.prepareAR(ARDir, fileRelaxedAlignmentPhylip, fileRelaxedTreewithBLNoInternalNodeLabels);
-            bw.append("echo \""+ARCommand+"\" | qsub -N "+expPath.getName()+" -wd "+ARDir.getAbsolutePath());
+            bw.append("echo \""+ARCommand+"\" | qsub -N AR_"+expPath.getName()+" -wd "+ARDir.getAbsolutePath());
             bw.newLine();
 
             //make subdirectory corresponding to  k/alpha combinations
             //this will be the directory in which viromeplacer will work
             for (int current_k = k; current_k < maxK+kIncrement; current_k+=kIncrement) {
-                for (double current_alpha = factor; current_alpha < maxFactor+factorIncrement; current_alpha+=factorIncrement) {
+                for (float current_alpha = factor; current_alpha < maxFactor+factorIncrement; current_alpha+=factorIncrement) {
 
-                    Infos.println("#######################################################");
-                    Infos.println("# PREPARING COMMANDS FOR QSUB AR LAUNCHES; Config: k="+current_k+" factor="+current_alpha);
-                    Infos.println("#######################################################");
+                    System.out.print("; k="+current_k+" a="+nf.format(current_alpha));
 
                     //make subdirectory corresponding to this k/alpha combination
                     File combDir=new File(expPath.getAbsolutePath()+File.separator+"k"+current_k+"_a"+nf.format(current_alpha));
@@ -843,7 +845,7 @@ public class PrunedTreeGenerator {
                 }
 
             }
-
+            System.out.println("");
 
 
         }
@@ -883,14 +885,13 @@ public class PrunedTreeGenerator {
 
         
         //launch pruning for each selected Nx
+        System.out.println("PREPARING HMM ALIGNEMENTS FOR ALL EXPERIMENTS");
         for (int i = 0; i < actuallyPrunedNodeIdsIndexes.size(); i++) {
             Integer nx_id = actuallyPrunedNodeIdsIndexes.get(i);
             File Ax=prunedAlignmentsFiles.get(i);
             File Tx=prunedTreesFiles.get(i);
             String experimentAlignmentLabel=Ax.getName().split("\\.")[0];
             String experimentTreeLabel=Tx.getName().split("\\.")[0];
-            System.out.println("PREPARING HMM ALIGNEMENTS FOR EXPERIMENT: "+experimentAlignmentLabel);
-
             //alignment filename is used as default workDir for this experiment
             File HMMxAxDir=new File(HMMxDir.getAbsolutePath()+File.separator+experimentAlignmentLabel);
             System.out.println("Experiment work dir: "+HMMxAxDir.getAbsolutePath());
@@ -932,7 +933,7 @@ public class PrunedTreeGenerator {
             Files.setPosixFilePermissions(shScript.toPath(), perms);
             //add the qsub execution line of this sh script in the list of qsub
             //commands
-            qSubCommands.append("echo \""+shScript.getAbsolutePath()+"\" |  qsub -N HMMx_"+experimentAlignmentLabel+
+            qSubCommands.append("echo \""+shScript.getAbsolutePath()+"\" |  qsub -N HMM_"+experimentAlignmentLabel+
                                 " -wd "+HMMxAxDir.getAbsolutePath()+"\n");
         }
         //write the qsub command file
@@ -1029,8 +1030,14 @@ public class PrunedTreeGenerator {
         t.start();
     }
     
-    
-    private ExtendedTree buildExtendedTrees(File extendedTreePath,Alignment align, PhyloTree tree) {
+    /**
+     * build extendedTree from given PhyloTree and Alignment, 
+     * save it as newick, phylip, fasta and binary files in extendedTreePath
+     * @param extendedTreePath
+     * @param align
+     * @param tree 
+     */
+    private void buildExtendedTrees(File extendedTreePath,Alignment align, PhyloTree tree) {
         
         ExtendedTree extendedTree = null;
 
@@ -1039,17 +1046,17 @@ public class PrunedTreeGenerator {
         File fileRelaxedTreewithBL=new File(extendedTreePath.getAbsolutePath()+File.separator+"extended_tree_withBL.tree");
         File fileRelaxedTreewithBLNoInternalNodeLabels=new File(extendedTreePath.getAbsolutePath()+File.separator+"extended_tree_withBL_withoutInterLabels.tree");;
         File fileRelaxedTreeBinary=new File(extendedTreePath.getAbsolutePath()+File.separator+"extended_tree.bin");
+        File idsMappings=new File(extendedTreePath.getAbsolutePath()+File.separator+"extended_tree_node_mapping_from_prunedTreeGenerator.tsv");
         
         try {
-            System.out.println("Injecting fake nodes...");
             //note, we read again the tree to build Ax new PhyloTree object
             //this is necessary as its TreeModel is directly modified
             //at instanciation of ExtendedTree
             extendedTree=new ExtendedTree(tree,minBranchLength,branchPerLength);                    
             extendedTree.initIndexes(); // don'Tx forget to reinit indexes !!!
             ArrayList<PhyloNode> listOfNewFakeLeaves = extendedTree.getFakeLeaves();
-            System.out.println("RelaxedTree contains "+extendedTree.getLeavesCount()+ " leaves");
-            System.out.println("RelaxedTree contains "+extendedTree.getFakeLeaves().size()+ " FAKE_X new leaves");
+            //System.out.println("RelaxedTree contains "+extendedTree.getLeavesCount()+ " leaves");
+            //System.out.println("RelaxedTree contains "+extendedTree.getFakeLeaves().size()+ " FAKE_X new leaves");
             //add new leaves to alignment
             char[] gapSeq=new char[align.getLength()];
             Arrays.fill(gapSeq, '-');
@@ -1062,34 +1069,43 @@ public class PrunedTreeGenerator {
             align.addAllSequences(labels,seqs);
             
             //write alignment and ARTree for BrB
-            System.out.println("Write extended alignment (fasta): "+fileRelaxedAlignmentFasta.getAbsolutePath());
+            //System.out.println("Write extended alignment (fasta): "+fileRelaxedAlignmentFasta.getAbsolutePath());
             align.writeAlignmentAsFasta(fileRelaxedAlignmentFasta);
-            System.out.println("Write extended alignment (phylip): "+fileRelaxedAlignmentPhylip.getAbsolutePath());
+            //System.out.println("Write extended alignment (phylip): "+fileRelaxedAlignmentPhylip.getAbsolutePath());
             align.writeAlignmentAsPhylip(fileRelaxedAlignmentPhylip);
             align=null;
             //write extended trees
-            System.out.println("Write extended newick tree: "+fileRelaxedTreewithBL.getAbsolutePath());
+            //System.out.println("Write extended newick tree: "+fileRelaxedTreewithBL.getAbsolutePath());
             NewickWriter nw=new NewickWriter(fileRelaxedTreewithBL);
             nw.writeNewickTree(extendedTree, true, true, false);
             nw.close();
             //write version without internal nodes labels
-            System.out.println("Write extended newick tree with branch length: "+fileRelaxedTreewithBLNoInternalNodeLabels.getAbsolutePath());
+            //System.out.println("Write extended newick tree with branch length: "+fileRelaxedTreewithBLNoInternalNodeLabels.getAbsolutePath());
             nw=new NewickWriter(fileRelaxedTreewithBLNoInternalNodeLabels);
             nw.writeNewickTree(extendedTree, true, false, false);
+            nw.close();
             //save this extendedTree as Ax binary
             FileOutputStream fos = new FileOutputStream(fileRelaxedTreeBinary);
             ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(fos,4096));
-            Infos.println("Storing binary version of Extended Tree.");
+            System.out.println("Storing binary version of ExtendedTree: "+fileRelaxedTreeBinary.getAbsolutePath());
             oos.writeObject(extendedTree);
             oos.close();
-            //extendedTreeForJplace=nw.getNewickTree(extendedTree, true, true, true);
-            nw.close();
+            //finally, for debugging, output the ids mappings
+            FileWriter fw=new FileWriter(idsMappings);
+            fw.append("original_id\toriginal_name\textended_id\textended_name");
+            LinkedHashMap<Integer, Integer> fakeNodeMapping = extendedTree.getFakeNodeMapping();
+            for (Iterator<Integer> iterator = fakeNodeMapping.keySet().iterator(); iterator.hasNext();) {
+                Integer next = iterator.next();
+                fw.append("\n");
+                fw.append(fakeNodeMapping.get(next)+"\t"+tree.getById(fakeNodeMapping.get(next)).getLabel()+"\t");
+                fw.append(next+"\t"+extendedTree.getById(next).getLabel());
+            }
+            fw.close();  
         } catch (IOException ex) {
             ex.printStackTrace();
-            System.out.println("Error raised from extended tree reconstruciton!");
+            System.out.println("Error raised from extended tree reconstruction!");
         }
         
-        return extendedTree;
     }
     
 }
