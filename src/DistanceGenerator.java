@@ -12,6 +12,7 @@ import java.io.ObjectInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -78,7 +79,7 @@ public class DistanceGenerator {
             File csvResult=new File(dg.workDir+File.separator+"results.csv");
             BufferedWriter bw=new BufferedWriter(new FileWriter(csvResult));
             //header
-            bw.append("software;Ax;k;alpha;Rx;read;node_dist\n");
+            bw.append("software;Ax;k;alpha;dbSize;Rx;read;readSize;node_dist\n");
             
             
             
@@ -94,6 +95,8 @@ public class DistanceGenerator {
                 Path currentJPlaceFile = EPAJPlaceFiles.get(i);
                 String experimentLabel=currentJPlaceFile.getParent().getFileName().toString();
                 String readLabel=currentJPlaceFile.getFileName().toString().split("\\.")[1]; //SECOND element in filename in pplacer ex: RAxML_portableTree.R0_nx110_la_r150.jplace
+                String[]elts=readLabel.split("_");
+                String readSize=elts[elts.length-1].substring(1);
                 int pruningNumber=Integer.parseInt(experimentLabel.split("_")[0].substring(1));
                 int prunedNodeId=Integer.parseInt(experimentLabel.split("_")[1].substring(2)); //i.e. Nx
                 int expectedPlacementIndex=NxIndex.get(prunedNodeId);
@@ -132,7 +135,7 @@ public class DistanceGenerator {
 
                     System.out.println(name+" -> nodeDistance:"+nodeDistance);
                     //software;Ax;k;alpha;Rx;read;node_dist
-                    bw.append("EPA;"+experimentLabel+";;;"+readLabel+";"+name+";"+nodeDistance+"\n");
+                    bw.append("EPA;"+experimentLabel+";;;;"+readLabel+";"+name+";"+readSize+";"+nodeDistance+"\n");
                 }
             
             }
@@ -149,6 +152,8 @@ public class DistanceGenerator {
                 Path currentJPlaceFile = PPLJPlaceFiles.get(i);
                 String experimentLabel=currentJPlaceFile.getParent().getFileName().toString();
                 String readLabel=currentJPlaceFile.getFileName().toString().split("\\.")[0]; //FIRST element in filename in pplacer ex: R0_nx110_la_r150.aln.jplace
+                String[]elts=readLabel.split("_");
+                String readSize=elts[elts.length-1].substring(1);
                 int pruningNumber=Integer.parseInt(experimentLabel.split("_")[0].substring(1));
                 int prunedNodeId=Integer.parseInt(experimentLabel.split("_")[1].substring(2)); //i.e. Nx
                 int expectedPlacementIndex=NxIndex.get(prunedNodeId);
@@ -187,7 +192,7 @@ public class DistanceGenerator {
 
                     System.out.println(name+" -> nodeDistance:"+nodeDistance);
                     //software;Ax;k;alpha;Rx;read;node_dist
-                    bw.append("PPL;"+experimentLabel+";;;"+readLabel+";"+name+";"+nodeDistance+"\n");
+                    bw.append("PPL;"+experimentLabel+";;;;"+readLabel+";"+name+";"+readSize+";"+nodeDistance+"\n");
                 }
             
             }
@@ -210,7 +215,14 @@ public class DistanceGenerator {
                 float alpha=Float.parseFloat(data[1].substring(1));
                 //experiment
                 String experimentLabel=currentJPlaceFile.getParent().getParent().getParent().getFileName().toString(); //3 times get parent  Ax_nxx_xxx/kx_ax/logs/jplace
-                String readLabel=currentJPlaceFile.getFileName().toString().split("\\.")[0]; //FIRST element in filename in pplacer ex: R0_nx110_la_r150.aln.jplace
+                //FIRST element in filename in pplacer ex: R0_nx110_la_r150.aln.jplace, holds placements_ at the beginning, so substring starts at 11
+                String readLabel=currentJPlaceFile.getFileName().toString().split("\\.")[0].substring(11); 
+                String[]elts=readLabel.split("_");
+                String readSize=elts[elts.length-1].substring(1);
+                //dbSize: exemple: placements_R0_nx4_la_r300.fasta_medium.jplace  placements_R0_nx4_la_r300.fasta_small.jplace
+                elts=currentJPlaceFile.getFileName().toString().split("_");
+                String dbSize=elts[elts.length-1].split("\\.")[0];
+                
                 int pruningNumber=Integer.parseInt(experimentLabel.split("_")[0].substring(1));
                 int prunedNodeId=Integer.parseInt(experimentLabel.split("_")[1].substring(2)); //i.e. Nx
                 int expectedPlacementIndex=NxIndex.get(prunedNodeId);
@@ -249,7 +261,7 @@ public class DistanceGenerator {
 
                     System.out.println(name+" -> nodeDistance:"+nodeDistance);
                     //software;Ax;k;alpha;Rx;read;node_dist
-                    bw.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+readLabel+";"+name+";"+nodeDistance+"\n");
+                    bw.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";"+nodeDistance+"\n");
                 }
             
             } 

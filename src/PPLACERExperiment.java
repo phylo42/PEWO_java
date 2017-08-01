@@ -57,7 +57,8 @@ public class PPLACERExperiment {
         
         FileWriter fw=null;
         try {
-            System.out.println("ARGS: workDir PPLACERBinary #rm#TAXITBinary statisticFile(ex:RAxML_info_xxx)");
+            System.out.println("WARNING: 'taxtastic' command needs to be set in launch environement");
+            System.out.println("ARGS: workDir PPLACERBinary statisticFile(ex:RAxML_info_xxx)");
             
             //launch
             PPLACERExperiment exp=new PPLACERExperiment();

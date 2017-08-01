@@ -130,7 +130,7 @@ public class RAPPASExperiment {
                         System.out.println("db_build for k="+k+" alpha="+alpha+" in "+experimentLabel+"/"+DxAxKAlphaDir.getName());
 
                         StringBuilder sb=new StringBuilder();
-                        sb.append("/usr/bin/java -Xmx18000m -Xms6000m -jar "+exp.RAPPAJar.getAbsolutePath()+" ");
+                        sb.append("/usr/bin/java -Xmx18000m -Xms4000m -jar "+exp.RAPPAJar.getAbsolutePath()+" ");
                         sb.append("-m b -a "+new Float(alpha).toString()+" -k "+new Integer(k).toString()+" ");
                         sb.append("-t "+Tx.getAbsolutePath()+" ");
                         sb.append("-i "+Ax.getAbsolutePath()+" ");
@@ -199,6 +199,7 @@ public class RAPPASExperiment {
 
                         for (int j = 0; j < listFiles.length; j++) {
                             File RxFile = listFiles[j];
+                            //command 1, DB medium
                             StringBuilder sb=new StringBuilder();
                             sb.append("/usr/bin/java -jar "+exp.RAPPAJar.getAbsolutePath()+" ");
                             sb.append("-m p ");
@@ -209,6 +210,16 @@ public class RAPPASExperiment {
                             //example: this command
                             //java -jar ../rappas/ViromePlacer.jar -m p -q Rx/R0_nx110_la_r150.fasta -d Dx/A0_nx110_la/k5_a1.0/*.medium -w Dx/A0_nx110_la/k5_a1.0/ -v 1
                             sbPLACEMENTCommands.append(sb.toString());
+                            //command 2, DB small
+                            sb=new StringBuilder();
+                            sb.append("/usr/bin/java -jar "+exp.RAPPAJar.getAbsolutePath()+" ");
+                            sb.append("-m p ");
+                            sb.append("-w "+DxAxKAlphaDir+" ");
+                            sb.append("-d "+DxAxKAlphaDir.getAbsolutePath()+File.separator+"*.small ");
+                            sb.append("-q "+RxFile.getAbsolutePath()+" ");
+                            sb.append("-v 1\n");
+                            sbPLACEMENTCommands.append(sb.toString());                            
+                            
                         }
 
                         commandCount++;

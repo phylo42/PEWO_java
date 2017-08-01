@@ -55,7 +55,9 @@ import tree.PhyloTreeModel;
  */
 public class PrunedTreeGenerator {
     
+    //pseudorandom generator
     Long seed=new Long(1);
+    Random rand = new Random(seed);
     
     //workDir
     String HOME = System.getenv("HOME");
@@ -83,9 +85,11 @@ public class PrunedTreeGenerator {
     double percentPruning=0.5; //10%
 
     //read generation: nomral distrib around mean R with sd (R/4)
-    //and min length m
+    //and min length Rmin
     int[] R={3,6};
-    int m=2; //let's consider that we have at least 75bp reads
+    //standard deviation for each r in R
+    double Rsd=0.5;
+    int Rmin=1; //let's consider that we have at least 75bp reads
 
     //set which k/alpha are tested (1 directory created par combination
     int k=5;
@@ -120,7 +124,7 @@ public class PrunedTreeGenerator {
         
     public static void main(String[] args) {
         
-        System.out.println("ARGS: workDir ARBinaries HMMBinariesDir align tree percentPruning readSize1,readSize2,...");
+        System.out.println("ARGS: workDir ARBinaries HMMBinariesDir align tree percentPruning readSize1,readSize2,... readSD");
         
         try {
             //launch
@@ -142,6 +146,7 @@ public class PrunedTreeGenerator {
                 for (int i = 0; i < readSizes.length; i++) {
                     ptg.R[i]=Integer.valueOf(readSizes[i]);
                 }
+                ptg.Rsd=Integer.parseInt(args[7]);
             } //if no args use default values
             
             
@@ -634,7 +639,7 @@ public class PrunedTreeGenerator {
                     Fasta next = it.next();
                     String seqNoGaps=next.getSequence(true);
                     //select normally distibuted read length v_length
-                    //centered around R[j] and with standard dev of r/4
+                    //centered around R[j] and with standard dev of value Rsd
                     //mySample = r.nextGaussian()*desiredStandardDeviation+desiredMean
                     //The mean of the sample point is 0, and the standard deviation is 1;
                     //that means that the original sample is also its own z-score.
@@ -647,12 +652,11 @@ public class PrunedTreeGenerator {
                     //z*stdev + mean = x' where z=x, and x' represents
                     //the sample from the distribution with the desired mean
                     //and standard deviation.
-                    Random rand = new Random(seed);
-                    int v_length = new Double(r+rand.nextGaussian()*(new Double(r)/4.0)).intValue();
-                    //System.out.println(v_length);
-                    if (v_length>=m && v_length<seqNoGaps.length()) {
+                    int v_length = new Double(0.0+r+rand.nextGaussian()*Rsd).intValue();
+                    System.out.println(expString+" v_length= "+v_length);
+                    if (v_length>=Rmin && v_length<seqNoGaps.length()) {
                         //select an uniformely distibution position in [0,seqLength-v_length]
-                        int p=rand.nextInt(seqNoGaps.length()-v_length+1);//this is an exclusive upper bound, so +1 to includelast possibility
+                        int p=rand.nextInt(seqNoGaps.length()-v_length+1);//this is an exclusive upper bound, so +1 to include last possibility
                         String read=next.getSequence(true).substring(p, p+v_length);
                         Fasta n=new Fasta(next.getHeader()+"_r"+R[j]+"_"+p+"_"+(p+v_length-1), read);
                         fw.append(n.getFormatedFasta()+"\n");
