@@ -86,7 +86,7 @@ public class EPAExperiment {
             //build all Ax directories in /HMMx and for each set of hmm-aligned
             //reads (/HMMx/Ax_nx_la/Rx_nx_la_r), build the list of commands
             for (int i=0;i<exp.prunedAlignmentsFiles.size();i++) {
-                String experimentLabel=exp.prunedAlignmentsFiles.get(i).getName().split("\\.")[0];
+                String experimentLabel=exp.prunedAlignmentsFiles.get(i).getName().split("\\.align$")[0];
                 System.out.println("EPA commands for "+experimentLabel);
                 File EPAxAxDir=new File(EPAxDir.getAbsolutePath()+File.separator+experimentLabel);
                 EPAxAxDir.mkdir();
@@ -101,7 +101,7 @@ public class EPAExperiment {
                 });
                 for (int j = 0; j < listFiles.length; j++) {
                     File f = listFiles[j];
-                    String readAlignLabel=f.getName().split("\\.")[0];
+                    String readAlignLabel=f.getName().split("\\.aln\\.fasta$")[0];
                     //build the placement commands
                     //example:  RAxMLBinary -f v -G 0.1 -m GTRCAT -n EPA -s ../concat_basic_queries.fasta -t ../RAxML_bestTree.basic_tree
                     StringBuilder sbRAxMLCommand=new StringBuilder();

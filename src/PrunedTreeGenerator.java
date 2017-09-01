@@ -28,11 +28,10 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 import outputs.ARProcessLauncher;
-import org.jfree.io.IOUtils;
 import tree.ExtendedTree;
 import tree.NewickReader;
 import tree.NewickWriter;
@@ -77,7 +76,6 @@ public class PrunedTreeGenerator {
     public ArrayList<File> prunedTreesFiles=new ArrayList<>(); //list of pruned Trees
     public HashMap<String,List<File>> readFiles=new HashMap<>(); //map of reads, map(A0_nx4_la)=[A0_nx4_la_r150,A0_nx4_la_r300]
     public ArrayList<PhyloTree> prunedTrees=new ArrayList<>(); //list of pruned Trees
-    public ArrayList<Alignment> prunedAlignments=new ArrayList<>(); //list of pruned Trees
     public File fileDtx=null;
     public File fileD2tx=null;
     
@@ -124,7 +122,7 @@ public class PrunedTreeGenerator {
         
     public static void main(String[] args) {
         
-        System.out.println("ARGS: workDir ARBinaries HMMBinariesDir align tree percentPruning readSize1,readSize2,... readSD");
+        System.out.println("ARGS: workDir ARBinaries HMMBinariesDir align tree percentPruning(float) readSize1(int),readSize2(int),... readSD(int) HMMOnly[true/false]");
         
         try {
             //launch
@@ -212,31 +210,20 @@ public class PrunedTreeGenerator {
             //tree.displayTree();
             
             
-            
-            
             //PREPARE ALL PRUNING EXPERIMENT FILES (Ax, Tx, Rx)
             //Ax: the pruned alignments
             //Tx: the pruned trees
             //Rx: the reads built from the pruned leaves
+            //AND PREPARE THE AR direcoties FOR ALL k/alpha COMBINATIONS (Dx)
+            //i.e : build the extended trees
+            //      build AR command, without execution
+            //      prepare script which launch these using SGE (qsub)  
             ///////////////////////////////////////////////////
             if (!ptg.workDir.exists()) {
                 ptg.workDir.mkdir();
             }
             ptg.generatePrunedTrees(ptg.workDir,tree,align);
             System.out.println("PRUNED TREE GENERATION DONE !");
-            
-            
-            
-            
-            
-            //PREPARE THE AR direcoties FOR ALL k/alpha COMBINATIONS (Dx)
-            //i.e : build the extended trees
-            //      build AR command, without execution
-            //      prepare script which launch these using SGE (qsub)  
-            ///////////////////////////////////////////////////
-            ptg.prepareExtendedTreeAndARcommands(ptg.workDir);
-            System.out.println("BUILD OF ALL DB (different k/alpha) DONE !");
-            
             
             ////////////////////////////////////////////////////////////////////
             //build HMM alignments for this current pruning experiment
@@ -311,6 +298,21 @@ public class PrunedTreeGenerator {
         nodeDistMatrix.append("\n");
         branchDistMatrix.append(new String(nodeDistMatrix)); //simple contructor copy
         
+        //to ensure consistent direcory names (alpha-> _ax_)
+        NumberFormat nf = NumberFormat.getNumberInstance();
+        nf.setMinimumFractionDigits(1);
+        nf.setMaximumFractionDigits(1);
+        
+        //all AR reconstructions and viromeplacer DBs will be in directory Dx
+        File Dx=new File(workDir.getAbsolutePath()+File.separator+"Dx");
+        Dx.mkdir();
+        //        
+        ArrayList<File> DxWorkDirs=new ArrayList<>();
+        //File where to save all AR qsub commands
+        File qSubCommands=new File(workDir+File.separator+"Dx"+File.separator+"qsub_AR_commands");
+        BufferedWriter bw=new BufferedWriter(new FileWriter(qSubCommands));
+        
+        
         
             
         //launch pruning for each selected Nx
@@ -341,6 +343,9 @@ public class PrunedTreeGenerator {
             if (Nx.isRoot()) {
                 skippedLogBw.append("Nx="+i+"\t"+Nx.toString()+"\tIs root, so skipped.\n");
                 System.out.println("SKIPPED: this node is root (id="+nx_id+"), no pruning.");
+                //put null for this index
+                prunedAlignmentsFiles.add(null);
+                prunedTreesFiles.add(null);
                 continue;
             }
                         
@@ -388,6 +393,8 @@ public class PrunedTreeGenerator {
             if (alignCopy.getRowLabels().length<3) {
                 skippedLogBw.append("Nx="+i+"\t"+Nx.toString()+"\tPruning resulting to less than 3 leaves, so skipped.\n");
                 System.out.println("SKIPPED: This pruning results to a 3 with less than 3 leaves !  --> Nx skipped");
+                prunedAlignmentsFiles.add(null);
+                prunedTreesFiles.add(null);                
                 continue;
             }
             
@@ -414,7 +421,7 @@ public class PrunedTreeGenerator {
             prunedTreesFiles.add(Tx);
             prunedAlignmentsFiles.add(Ax);
             
-            System.out.println("LeavesRemoved: "+leavesRemoved);
+            System.out.println("LeavesRemoved: "+leavesRemoved.size());
             
             ////////////////////////////////////////////////////////////////////
             //second, built Tx.
@@ -520,7 +527,6 @@ public class PrunedTreeGenerator {
             
             //write alignment to file and list
             alignCopy.writeAlignmentAsFasta(Ax);
-            prunedAlignments.add(alignCopy);
             //save the pruned tree
             System.out.println("Indexing pruned tree");
             treeCopy.initIndexes(); //necessary to remove former nodes from the maps shortcuts
@@ -624,9 +630,10 @@ public class PrunedTreeGenerator {
 
             String expString="R"+i+"_nx"+nx_id+"_la"+Nx.getLabel();
             for (int j = 0; j < R.length; j++) {
+                System.out.println("Preparing "+j+"read query files: R="+Arrays.toString(R)+" ; Rsd="+Rsd);
                 //prepare the corresponding output files
                 String readFileString=expString+"_r"+R[j]+".fasta";
-                String experimentAlignmentLabel=Ax.getName().split("\\.")[0];
+                String experimentAlignmentLabel=Ax.getName().split("\\.align$")[0];
                 File Rxj=new File(RxDir+File.separator+readFileString);
                 //register it
                 if (!readFiles.containsKey(experimentAlignmentLabel))
@@ -653,7 +660,7 @@ public class PrunedTreeGenerator {
                     //the sample from the distribution with the desired mean
                     //and standard deviation.
                     int v_length = new Double(0.0+r+rand.nextGaussian()*Rsd).intValue();
-                    System.out.println(expString+" v_length= "+v_length);
+                    //System.out.println(expString+" v_length= "+v_length);
                     if (v_length>=Rmin && v_length<seqNoGaps.length()) {
                         //select an uniformely distibution position in [0,seqLength-v_length]
                         int p=rand.nextInt(seqNoGaps.length()-v_length+1);//this is an exclusive upper bound, so +1 to include last possibility
@@ -672,113 +679,42 @@ public class PrunedTreeGenerator {
             //debug
             //tree.displayTree();
             
-            //closes everything
-            nw.close();
-            treeCopy=null;
-                        
             
-            
-        }
-        
-        
-        System.out.println("############################################");
-        System.out.println("# Actually pruned:"+actuallyPrunedNodeIdsIndexes.size());
-        System.out.println("Actually pruned (prunedNodeIds indexes):"+actuallyPrunedNodeIdsIndexes);
-        System.out.println("Will be stared in expect_placement.bin such as");
-        System.out.println("NxIndex map(nodeId)=index: "+NxIndex);
-        System.out.println("Dtx and D'tx size (x,y): "+nodeIds.length+","+NxIndex.size());
-        System.out.println("############################################");
-        
-        
-        //after all placements, save expected placements in binary file
-        oos.writeObject(NxIndex);
-        oos.writeObject(expectedPlacements);
-        oos.writeObject(prunedTrees);
-        
-        
-        
-        
-        //closes all I/O 
-        brDtx.append(nodeDistMatrix);
-        brD2tx.append(branchDistMatrix);
-        brDtx.close();
-        brD2tx.close();
-        skippedLogBw.close();
-        oos.close();
-         
-    }
-    
-    
-    /**
-     * main script
-     * @param workDir 
-     * @throws IOException 
-     */
-    private void prepareExtendedTreeAndARcommands(File workDir) throws IOException {
-
-        //to ensure consistent direcory names (alpha-> _ax_)
-        NumberFormat nf = NumberFormat.getNumberInstance();
-        nf.setMinimumFractionDigits(1);
-        nf.setMaximumFractionDigits(1);
-        //
-        ArrayList<File> workDirs=new ArrayList<>();
-        
-        
-        //all AR reconstructions and viromeplacer DBs in Dx
-        File Dx=new File(workDir.getAbsolutePath()+File.separator+"Dx");
-        Dx.mkdir();
-        //File where to save all qsub commands
-        File qSubCommands=new File(workDir+File.separator+"Dx"+File.separator+"qsub_AR_commands");
-        BufferedWriter bw=new BufferedWriter(new FileWriter(qSubCommands));
-        
-        
-        
-        
-        //launch pruning for each selected Nx
-        for (int i = 0; i < actuallyPrunedNodeIdsIndexes.size(); i++) {
-            Integer nx_id = actuallyPrunedNodeIdsIndexes.get(i);
-            File a=prunedAlignmentsFiles.get(i);
-            File t=prunedTreesFiles.get(i);
-            
-            String experimentAlignmentLabel=a.getName().split("\\.")[0];
-            String experimentTreeLabel=t.getName().split("\\.")[0];
-            
-            System.out.println("PREPARING EXTENDED TREE/ALL DB_BUILDs FOR EXPERIMENT: "+experimentAlignmentLabel);
-
-            //alignment filename is used as default workDir for this experiment
-            File expPath=new File(Dx+File.separator+experimentAlignmentLabel);
-            System.out.println("Experiment work dir: "+expPath.getAbsolutePath());
-            workDirs.add(expPath);
-            if (workDir.canWrite())
-                expPath.mkdir();
-            else {
-                System.out.println("Cannot write in dir: "+expPath.getAbsolutePath());
-                System.exit(1);
-            }
+            ////////////////////////////////////////////////////////////////////
+            //fifth, launch the generation of extended tree and AR commands
+            //for this particular pruning
             
             
             //load data necessary to do the extended tree
             ///////////////////////////////////////////////////
             
+            File a=prunedAlignmentsFiles.get(i);
+            //File t=prunedTreesFiles.get(i);
+            
+            String experimentAlignmentLabel=a.getName().split("\\.align$")[0];
+            //String experimentTreeLabel=t.getName().split("\\.tree")[0];
+            
+            System.out.println("PREPARING EXTENDED TREE/ALL DB_BUILDs FOR EXPERIMENT: "+experimentAlignmentLabel);
+
+            //alignment filename is used as default workDir for this experiment
+            File DxExpPath=new File(Dx+File.separator+experimentAlignmentLabel);
+            System.out.println("Experiment work dir: "+DxExpPath.getAbsolutePath());
+            DxWorkDirs.add(DxExpPath);
+            if (workDir.canWrite())
+                DxExpPath.mkdir();
+            else {
+                System.out.println("Cannot write in dir: "+DxExpPath.getAbsolutePath());
+                System.exit(1);
+            }
+            
+            
             //directory of extended tree
             File extendedTreeDir=new File(workDir.getAbsolutePath()+File.separator+"Dx"+File.separator+experimentAlignmentLabel+File.separator+"extended_trees");
             extendedTreeDir.mkdir();
-            //select the tree and alignments of current pruning experiment
-            // workDir/Tx/TX_nxX_laX.tree
-            File Tx=new File(workDir.getAbsolutePath()+File.separator+"Tx"+File.separator+experimentTreeLabel+".tree");
-            // workDir/Ax/AX_nxX_laX.align
-            File Ax=new File(workDir.getAbsolutePath()+File.separator+"Ax"+File.separator+experimentAlignmentLabel+".align");
-            //load alignment of this experiment 
-            Alignment experimentAlign=prunedAlignments.get(i);
-            System.out.println(experimentAlign.describeAlignment(false));
-            //load tree of this experiment
-            PhyloTree experimentTree = prunedTrees.get(i); //indexes already init at creation
-            System.out.println("Experiment tree, # nodes: "+experimentTree.getNodeCount());
-            System.out.println("Is rooted?: "+experimentTree.isRooted());
             //build the extended trees first and save them in the extended_trees directory
             //these will be used in the AR below
             System.out.println("Create extended tree and save newick/fasta/phylip/bin.");
-            buildExtendedTrees(extendedTreeDir, experimentAlign, experimentTree);
+            buildExtendedTrees(extendedTreeDir, alignCopy, treeCopy);
             
             
             
@@ -799,7 +735,7 @@ public class PrunedTreeGenerator {
             
             //prepare corresponding AR commands (with PAML)
             String ARCommand = arpl.prepareAR(ARDir, fileRelaxedAlignmentPhylip, fileRelaxedTreewithBLNoInternalNodeLabels);
-            bw.append("echo \""+ARCommand+"\" | qsub -N AR_"+expPath.getName()+" -wd "+ARDir.getAbsolutePath());
+            bw.append("echo \""+ARCommand+"\" | qsub -N AR_"+DxExpPath.getName()+" -wd "+ARDir.getAbsolutePath());
             bw.newLine();
 
             //make subdirectory corresponding to  k/alpha combinations
@@ -807,10 +743,10 @@ public class PrunedTreeGenerator {
             for (int current_k = k; current_k < maxK+kIncrement; current_k+=kIncrement) {
                 for (float current_alpha = factor; current_alpha < maxFactor+factorIncrement; current_alpha+=factorIncrement) {
 
-                    System.out.print("; k="+current_k+" a="+nf.format(current_alpha));
+                    //System.out.print("; k="+current_k+" a="+nf.format(current_alpha));
 
                     //make subdirectory corresponding to this k/alpha combination
-                    File combDir=new File(expPath.getAbsolutePath()+File.separator+"k"+current_k+"_a"+nf.format(current_alpha));
+                    File combDir=new File(DxExpPath.getAbsolutePath()+File.separator+"k"+current_k+"_a"+nf.format(current_alpha));
                     boolean dirOK=combDir.mkdir();
                     //do Ax subdir AR/ in each k/alpha directory
                     //make symbolic link to rst file which is in experiment directory (same for all k/alpha combinations)
@@ -850,16 +786,57 @@ public class PrunedTreeGenerator {
 
             }
             System.out.println("");
-
-
+            
+            
+            
+            
+            
+            
+            //closes everything
+            nw.close();
+            treeCopy=null;
+                        
+            
+            
         }
         
+        
+        System.out.println("############################################");
+        System.out.println("# Actually pruned:"+actuallyPrunedNodeIdsIndexes.size());
+        System.out.println("Actually pruned (prunedNodeIds indexes):"+actuallyPrunedNodeIdsIndexes);
+        System.out.print("Actually pruned (prunedNodeIds):");
+        actuallyPrunedNodeIdsIndexes.forEach((index)->{System.out.print(" "+prunedNodeIds[index.intValue()]);});
+        System.out.println("");
+        System.out.println("Will be stared in expect_placement.bin such as");
+        System.out.println("NxIndex map(nodeId)=index: "+NxIndex);
+        System.out.println("Dtx and D'tx size (x,y): "+nodeIds.length+","+NxIndex.size());
+        System.out.println("############################################");
+        System.out.println(prunedAlignmentsFiles);
+        System.out.println(prunedTreesFiles);
         //give execution rights to the commands file
         Files.setPosixFilePermissions(qSubCommands.toPath(), perms);
         bw.close();
         
         
+        //after all placements, save expected placements in binary file
+        oos.writeObject(NxIndex);
+        oos.writeObject(expectedPlacements);
+        oos.writeObject(prunedTrees);
+        
+        
+        
+        
+        //closes all I/O 
+        brDtx.append(nodeDistMatrix);
+        brD2tx.append(branchDistMatrix);
+        brDtx.close();
+        brD2tx.close();
+        skippedLogBw.close();
+        oos.close();
+         
     }
+    
+
     
     
     /**
@@ -892,10 +869,11 @@ public class PrunedTreeGenerator {
         System.out.println("PREPARING HMM ALIGNEMENTS FOR ALL EXPERIMENTS");
         for (int i = 0; i < actuallyPrunedNodeIdsIndexes.size(); i++) {
             Integer nx_id = actuallyPrunedNodeIdsIndexes.get(i);
-            File Ax=prunedAlignmentsFiles.get(i);
-            File Tx=prunedTreesFiles.get(i);
-            String experimentAlignmentLabel=Ax.getName().split("\\.")[0];
-            String experimentTreeLabel=Tx.getName().split("\\.")[0];
+            System.out.println("HMM for nx_id="+nx_id);
+            File Ax=prunedAlignmentsFiles.get(nx_id);
+            File Tx=prunedTreesFiles.get(nx_id);
+            String experimentAlignmentLabel=Ax.getName().split("\\.align$")[0];
+            String experimentTreeLabel=Tx.getName().split("\\.align$")[0];
             //alignment filename is used as default workDir for this experiment
             File HMMxAxDir=new File(HMMxDir.getAbsolutePath()+File.separator+experimentAlignmentLabel);
             System.out.println("Experiment work dir: "+HMMxAxDir.getAbsolutePath());
@@ -917,8 +895,9 @@ public class PrunedTreeGenerator {
             
             //build alignments of reads
             List<File> reads=readFiles.get(experimentAlignmentLabel);
+            //System.out.println("Rx files: "+readFiles.get(experimentAlignmentLabel));
             for (int j=0;j<reads.size();j++) {
-                File alnOutput=new File(HMMxAxDir.getAbsolutePath()+File.separator+reads.get(j).getName().split("\\.")[0]+".aln.psiblast");
+                File alnOutput=new File(HMMxAxDir.getAbsolutePath()+File.separator+reads.get(j).getName().split("\\.fasta$")[0]+".aln.psiblast");
                 commandSet.append(HMMALIGNPath.getAbsolutePath()+" --outformat PSIBLAST "
                                     + " --mapali "+Ax.getAbsolutePath()+" -o "+alnOutput.getAbsolutePath()
                                     + " "+hmmOuput+" "+reads.get(j)
@@ -926,7 +905,7 @@ public class PrunedTreeGenerator {
                 //conversion to fasta
                 commandSet.append(  pyScript.getAbsolutePath()+" "+
                                     alnOutput.getAbsolutePath()+" "+
-                                    alnOutput.getParentFile().getAbsolutePath()+File.separator+alnOutput.getName().split("\\.")[0]+".aln.fasta" +
+                                    alnOutput.getParentFile().getAbsolutePath()+File.separator+alnOutput.getName().split("\\.aln.psiblast$")[0]+".aln.fasta" +
                                     "\n");   
             }
             //save this alignment commands in a sh script

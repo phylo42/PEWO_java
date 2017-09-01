@@ -154,9 +154,9 @@ public class RAPPASExperimentDBInRAM {
                             sb.append("\n");
                             sbPLACEMENTCommands.append(sb.toString());  
                             
+                            commandCount++;
                         }
 
-                        commandCount++;
                     }
                 } 
             }

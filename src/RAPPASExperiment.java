@@ -220,9 +220,9 @@ public class RAPPASExperiment {
                             sb.append("-v 1\n");
                             sbPLACEMENTCommands.append(sb.toString());                            
                             
+                            commandCount++;
                         }
 
-                        commandCount++;
                     }
                 } 
             }
