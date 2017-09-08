@@ -89,17 +89,17 @@ public class PrunedTreeGenerator {
     double Rsd=0.5;
     int Rmin=1; //let's consider that we have at least 75bp reads
 
-    //set which k/alpha are tested (1 directory created par combination
-    int k=5;
+    //set which minK/alpha are tested (1 directory created par combination
+    int minK=5;
     int maxK=12;
     int kIncrement=1;
-    float factor=1.0f;
+    float minFactor=1.0f;
     float maxFactor=2.0f;
     float factorIncrement=0.1f;
     
     //set the critera for branch injection
     float minBranchLength=-1.0f; //basically all branches, of all length (even 0)
-    int branchPerLength=1;
+    int branchPerEdge=1;
     
     //AR program
     File ARExecutablePath=new File(HOME+"/Dropbox/viromeplacer/test_datasets/software/paml4.9b_hacked/bin/baseml");
@@ -122,7 +122,7 @@ public class PrunedTreeGenerator {
         
     public static void main(String[] args) {
         
-        System.out.println("ARGS: workDir ARBinaries HMMBinariesDir align tree percentPruning(float) readSize1(int),readSize2(int),... readSD(int) HMMOnly[true/false]");
+        System.out.println("ARGS: workDir ARBinaries HMMBinariesDir align tree percentPruning(float) readSize1(int),readSize2(int),... readSD(int) [ branchPerEdge[int] ] [ kmin[int] kmax[int] kstep[int] amin[float] amax[float] astep[float] ] ");
         
         try {
             //launch
@@ -145,6 +145,20 @@ public class PrunedTreeGenerator {
                     ptg.R[i]=Integer.valueOf(readSizes[i]);
                 }
                 ptg.Rsd=Integer.parseInt(args[7]);
+                
+                //optionnals
+                if (args.length>8) {
+                    ptg.branchPerEdge=Integer.parseInt(args[8]);
+                }
+                if (args.length>9) {
+                    ptg.minK=Integer.parseInt(args[9]);
+                    ptg.maxK=Integer.parseInt(args[10]);
+                    ptg.factorIncrement=Integer.parseInt(args[11]);
+                    ptg.minFactor=Float.parseFloat(args[12]);
+                    ptg.maxFactor=Float.parseFloat(args[13]);
+                    ptg.factorIncrement=Float.parseFloat(args[14]);
+                }
+                
             } //if no args use default values
             
             
@@ -156,6 +170,13 @@ public class PrunedTreeGenerator {
             System.out.println("alignFile: "+ptg.alignFile);
             System.out.println("treeFile: "+ptg.treeFile);
             System.out.println("readSizes: "+Arrays.toString(ptg.R));
+            System.out.println("branchPerEdge: "+ptg.branchPerEdge);
+            System.out.println("mink:"+ptg.minK);
+            System.out.println("maxk:"+ptg.maxK);
+            System.out.println("incrementk:"+ptg.kIncrement);
+            System.out.println("minalpha:"+ptg.minFactor);
+            System.out.println("maxalpha:"+ptg.maxFactor);
+            System.out.println("incrementalpha:"+ptg.factorIncrement);
 
             //TEST ZONE
             
@@ -214,7 +235,7 @@ public class PrunedTreeGenerator {
             //Ax: the pruned alignments
             //Tx: the pruned trees
             //Rx: the reads built from the pruned leaves
-            //AND PREPARE THE AR direcoties FOR ALL k/alpha COMBINATIONS (Dx)
+            //AND PREPARE THE AR direcoties FOR ALL minK/alpha COMBINATIONS (Dx)
             //i.e : build the extended trees
             //      build AR command, without execution
             //      prepare script which launch these using SGE (qsub)  
@@ -738,18 +759,18 @@ public class PrunedTreeGenerator {
             bw.append("echo \""+ARCommand+"\" | qsub -N AR_"+DxExpPath.getName()+" -wd "+ARDir.getAbsolutePath());
             bw.newLine();
 
-            //make subdirectory corresponding to  k/alpha combinations
+            //make subdirectory corresponding to  minK/alpha combinations
             //this will be the directory in which viromeplacer will work
-            for (int current_k = k; current_k < maxK+kIncrement; current_k+=kIncrement) {
-                for (float current_alpha = factor; current_alpha < maxFactor+factorIncrement; current_alpha+=factorIncrement) {
+            for (int current_k = minK; current_k < maxK+kIncrement; current_k+=kIncrement) {
+                for (float current_alpha = minFactor; current_alpha < maxFactor+factorIncrement; current_alpha+=factorIncrement) {
 
-                    //System.out.print("; k="+current_k+" a="+nf.format(current_alpha));
+                    //System.out.print("; minK="+current_k+" a="+nf.format(current_alpha));
 
-                    //make subdirectory corresponding to this k/alpha combination
+                    //make subdirectory corresponding to this minK/alpha combination
                     File combDir=new File(DxExpPath.getAbsolutePath()+File.separator+"k"+current_k+"_a"+nf.format(current_alpha));
                     boolean dirOK=combDir.mkdir();
-                    //do Ax subdir AR/ in each k/alpha directory
-                    //make symbolic link to rst file which is in experiment directory (same for all k/alpha combinations)
+                    //do Ax subdir AR/ in each minK/alpha directory
+                    //make symbolic link to rst file which is in experiment directory (same for all minK/alpha combinations)
                     File combDirAR=new File(combDir.getAbsolutePath()+File.separator+"AR");
                     combDirAR.mkdir();
                     File combDirExtendedTree=new File(combDir.getAbsolutePath()+File.separator+"extended_trees");
@@ -759,9 +780,9 @@ public class PrunedTreeGenerator {
                     File linkToRST=new File(combDirAR.getAbsolutePath()+File.separator+"rst");
                     if (!linkToRST.exists())
                         Files.createSymbolicLink(linkToRST.toPath(), originalRST.toPath());
-                    //do Ax subdir extended_trees/ in each k/alpha directory
+                    //do Ax subdir extended_trees/ in each minK/alpha directory
                     //make symbolic link to correpsonding trees/alignments
-                    //which are in experiment directory (same trees/aligns for all k/alpha combinations)
+                    //which are in experiment directory (same trees/aligns for all minK/alpha combinations)
                     //this is necessary because these trees are required by db_build
                     File linkToTree=new File(combDirExtendedTree.getAbsolutePath()+File.separator+"extended_tree_withBL.tree");
                     File linkToTreeNoInter=new File(combDirExtendedTree.getAbsolutePath()+File.separator+"extended_tree_withBL_withoutInterLabels.tree");
@@ -1035,7 +1056,7 @@ public class PrunedTreeGenerator {
             //note, we read again the tree to build Ax new PhyloTree object
             //this is necessary as its TreeModel is directly modified
             //at instanciation of ExtendedTree
-            extendedTree=new ExtendedTree(tree,minBranchLength,branchPerLength);                    
+            extendedTree=new ExtendedTree(tree,minBranchLength,branchPerEdge);                    
             extendedTree.initIndexes(); // don'Tx forget to reinit indexes !!!
             ArrayList<PhyloNode> listOfNewFakeLeaves = extendedTree.getFakeLeaves();
             //System.out.println("RelaxedTree contains "+extendedTree.getLeavesCount()+ " leaves");

@@ -96,7 +96,7 @@ public class PPLACERExperiment {
             //build all Ax directories in /HMMx and for each set of hmm-aligned
             //reads (/HMMx/Ax_nx_la/Rx_nx_la_r), build the list of commands
             for (int i=0;i<exp.prunedAlignmentsFiles.size();i++) {
-                String experimentLabel=exp.prunedAlignmentsFiles.get(i).getName().split("\\.")[0];
+                String experimentLabel=exp.prunedAlignmentsFiles.get(i).getName().split("\\.align$")[0];
                 System.out.println("PPL commands for "+experimentLabel);
                 File PPLxAxDir=new File(PPLxDir.getAbsolutePath()+File.separator+experimentLabel);
                 PPLxAxDir.mkdir();
