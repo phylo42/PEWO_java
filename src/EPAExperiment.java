@@ -109,8 +109,8 @@ public class EPAExperiment {
                             "-f v -G 0.1 -m GTRCAT " +
                             "-n "+readAlignLabel+" " +
                             "-s "+f.getAbsolutePath()+" " +
-                            "-t "+exp.prunedTreesFiles.get(i).getAbsolutePath() +
-                            "\n"
+                            "-t "+exp.prunedTreesFiles.get(i).getAbsolutePath()
+                            
                     );
                     //do its qsub counterpart
                     sbQsubCommands.append("echo \""+sbRAxMLCommand.toString()+"\" |  qsub -N EPAx_"+readAlignLabel+

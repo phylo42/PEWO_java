@@ -48,8 +48,7 @@ public class JplacerLoader {
             
             //read tree
             String treeString=(String)topLevel.get("tree");
-            tree=NewickReader.parseNewickTree2(treeString, false, true);
-            tree.initIndexes();//compulsory to use the mappings below
+            tree=NewickReader.parseNewickTree2(treeString, false, true); //init indexes already done in the parser
             //System.out.println("isFromJplace:"+tree.isFromJplace());
             //System.out.println("jPlaceMappings:"+tree.getAllJPlaceMappings());
             

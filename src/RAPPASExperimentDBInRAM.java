@@ -54,7 +54,6 @@ public class RAPPASExperimentDBInRAM {
     
     public static void main(String[] args) {
         
-        FileWriter fw=null;
         try {
             System.out.println("ARGS: workDir RAPPASJar");
             
@@ -113,20 +112,49 @@ public class RAPPASExperimentDBInRAM {
             ////////////////////////////////////////////////////////////////
             //build placement commands
             
-            //list of rappas placement commands
-            StringBuilder sbPLACEMENTCommands=new StringBuilder();
-            int commandCount=0;
-            //for all AxDir, each combination of k/alpha
-            for (int i = 0; i < exp.prunedAlignmentsFiles.size(); i++) {
-                File Ax = exp.prunedAlignmentsFiles.get(i);
-                File Tx = exp.prunedTreesFiles.get(i);
-                String experimentLabel=Ax.getName().split("\\.")[0];
-                //list Rx files corresponding to this Ax
-                File RxDir=new File(exp.workDir.getCanonicalPath()+File.separator+"Rx");
-                listFiles = RxDir.listFiles((File dir, String name) -> name.startsWith("R"+experimentLabel.substring(1))); //(A->R)XX_nxXXX
-                System.out.println("list"+Arrays.toString(listFiles));
-                for (Iterator<Integer> iterator = allK.iterator(); iterator.hasNext();) {
-                    Integer k = iterator.next();
+            //file and filewriters holding list of commands
+            File fileCommandList=null;
+            FileWriter fwCommandList=null;
+            
+
+            
+            //intermediate array loader scripts
+            //version 18G (k<8)
+            File shScript=new File(DxDir.getAbsolutePath()+File.separator+"array_loader_placement_18G.sh");
+            //version 34G (k>=8)
+            File shScript2=new File(DxDir.getAbsolutePath()+File.separator+"array_loader_placement_34G.sh");
+
+            //then write the qsub_command in a file
+            //ex: qsub -t 1-100 ./qsub_array_loader.sh /ngs/linard/tests_accuracy/pplacer_16s/Dx 
+            File qsubCommand=new File(DxDir.getAbsolutePath()+File.separator+"qsub_rappas_placement");
+            FileWriter fwQsubCommand=new FileWriter(qsubCommand);
+            
+            
+            //For each k
+            for (Iterator<Integer> iterator = allK.iterator(); iterator.hasNext();) {
+                Integer k = iterator.next();
+                
+                //placement_commands files opened
+                fileCommandList=new File(DxDir.getAbsolutePath()+File.separator+"k"+k+"_placement_commands.list");
+                fwCommandList=new FileWriter(fileCommandList);
+
+                //number of commands per k qsub array
+                int commandCount=0;
+                
+                //list of rappas placement commands for this k
+                StringBuilder sbPLACEMENTCommands=new StringBuilder();
+            
+                //for all AxDir, each combination of k/alpha
+                for (int i = 0; i < exp.prunedAlignmentsFiles.size(); i++) {
+                    File Ax = exp.prunedAlignmentsFiles.get(i);
+                    File Tx = exp.prunedTreesFiles.get(i);
+                    String experimentLabel=Ax.getName().split("\\.")[0];
+                    //list Rx files corresponding to this Ax
+                    File RxDir=new File(exp.workDir.getCanonicalPath()+File.separator+"Rx");
+                    listFiles = RxDir.listFiles((File dir, String name) -> name.startsWith("R"+experimentLabel.substring(1))); //(A->R)XX_nxXXX
+                    System.out.println("list"+Arrays.toString(listFiles));
+                    
+                    //for all alpha
                     for (Iterator<Float> iterator1 = allAlpha.iterator(); iterator1.hasNext();) {
                         Float alpha = iterator1.next();
 
@@ -134,11 +162,16 @@ public class RAPPASExperimentDBInRAM {
                         File  DxAxKAlphaDir= new File(DxDir.getAbsolutePath()+File.separator+experimentLabel+File.separator+kAlphaDirName);
                         System.out.println("placement for k="+k+" alpha="+alpha+" in "+experimentLabel+"/"+DxAxKAlphaDir.getName());
 
+                        //for all query reads
                         for (int j = 0; j < listFiles.length; j++) {
                             File RxFile = listFiles[j];
                             //single, place on DB medium, then DB small
                             StringBuilder sb=new StringBuilder();
-                            sb.append("/usr/bin/java -Xmx18000m -Xms8000m -jar "+exp.RAPPAJar.getAbsolutePath()+" ");
+                            if (k<8)
+                                sb.append("/usr/bin/java -Xmx16000m -Xms16000m -jar "+exp.RAPPAJar.getAbsolutePath()+" ");
+                            else {
+                                sb.append("/usr/bin/java -Xmx32000m -Xms32000m -jar "+exp.RAPPAJar.getAbsolutePath()+" ");
+                            }
                             sb.append("-m b -a "+new Float(alpha).toString()+" -k "+new Integer(k).toString()+" ");
                             sb.append("-t "+Tx.getAbsolutePath()+" ");
                             sb.append("-i "+Ax.getAbsolutePath()+" ");
@@ -147,40 +180,54 @@ public class RAPPASExperimentDBInRAM {
                             //sb.append("--extree "+DxAxKAlphaDir+File.separator+"extended_trees "); //TODO: currently raise bugs, ids mappings problems...
                             sb.append("-v 1 ");
                             sb.append("--skipdbfull ");
-                            sb.append("--froot"); //not necessary, as trees from Tx directory should already be rooted and with added_root node
+                            sb.append("--froot "); //not necessary, as trees from Tx directory should already be rooted and with added_root node
                             sb.append("--dbinram ");
                             sb.append("-q "+RxFile.getAbsolutePath()+" ");
-                            sb.append("--nsbound -100000.0"); //skip calibration for this test.
+                            sb.append("--nsbound -100000.0 "); //skip calibration for this test.
                             sb.append("\n");
                             sbPLACEMENTCommands.append(sb.toString());  
-                            
+
                             commandCount++;
                         }
-
                     }
                 } 
+                
+                
+                //placement_commands files closed
+                fwCommandList.append(sbPLACEMENTCommands);
+                fwCommandList.close();
+                Files.setPosixFilePermissions(fileCommandList.toPath(), exp.perms);
+
+                //add line in qsub_command file
+                fwQsubCommand.append("qsub -N RAP_k"+k+" -t 1-"+commandCount+" -e "+qSubLogs.getAbsolutePath()+" -o "+qSubLogs.getAbsolutePath());
+                if (k<8) {
+                    fwQsubCommand.append(" "+shScript.getAbsolutePath());
+                } else {
+                    fwQsubCommand.append(" "+shScript2.getAbsolutePath());
+                }
+                fwQsubCommand.append(" "+DxDir.getAbsolutePath()+" "+fileCommandList.getName()+"\n");
+                
+                
+
             }
-            //write this buffer in a file
-            File dbbuild_commands=new File(DxDir.getAbsolutePath()+File.separator+"placement_commands.list");
-            fw=new FileWriter(dbbuild_commands);
-            fw.append(sbPLACEMENTCommands);
-            fw.close();
-            Files.setPosixFilePermissions(dbbuild_commands.toPath(), exp.perms);
+        
+            //close qsub_command file
+            fwQsubCommand.close();            
+            Files.setPosixFilePermissions(qsubCommand.toPath(), exp.perms);
             
             //then write qsub array shell script in the working directory
-            File shScript=new File(DxDir.getAbsolutePath()+File.separator+"array_loader_placement.sh");
-            InputStream resourceAsStream = exp.getClass().getClassLoader().getResourceAsStream("scripts/array_loader_placement.sh");
+            InputStream resourceAsStream = exp.getClass().getClassLoader().getResourceAsStream("scripts/array_loader_placement_18G.sh");
             Files.copy(resourceAsStream, shScript.toPath(), StandardCopyOption.REPLACE_EXISTING);
             resourceAsStream.close();
             Files.setPosixFilePermissions(shScript.toPath(), exp.perms);
+
+            resourceAsStream = exp.getClass().getClassLoader().getResourceAsStream("scripts/array_loader_placement_34G.sh");
+            Files.copy(resourceAsStream, shScript2.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            resourceAsStream.close();
+            Files.setPosixFilePermissions(shScript2.toPath(), exp.perms);            
             
-            //then write the qsub_command in a file
-            //ex: qsub -t 1-100 ./qsub_array_loader.sh /ngs/linard/tests_accuracy/pplacer_16s/Dx 
-            File qsubCommand=new File(DxDir.getAbsolutePath()+File.separator+"qsub_rappas_placement");
-            fw=new FileWriter(qsubCommand);
-            fw.append("qsub -t 1-"+commandCount+" -e "+qSubLogs.getAbsolutePath()+" -o "+qSubLogs.getAbsolutePath()+" "+shScript.getAbsolutePath()+" "+DxDir.getAbsolutePath());
-            fw.close();            
-            Files.setPosixFilePermissions(qsubCommand.toPath(), exp.perms);
+
+
             
             System.exit(0);
             

@@ -3,7 +3,7 @@
 # Also that it needs a 20G of free ram
 # and finally give error/output log destinations
 # removed: -tc 20  (limit to 20 simultaneous runs)
-#$ -l "mem_free=20G"
-COMMANDFILE=$1"/placement_commands.list"
+#$ -l "mem_free=34G"
+COMMANDFILE=$1"/"$2
 CURRENT_COMMAND=$(awk "NR==$SGE_TASK_ID" $COMMANDFILE)
 $CURRENT_COMMAND
