@@ -228,6 +228,21 @@ public class PrunedTreeGenerator {
             System.out.println("Is rooted: "+tree.isRooted());
             //tree.displayTree();
             
+            //test if alignment/tree labels are matching.
+            //if not, exit before raising more errors later in the algo...
+            List<String> alignLabels = Arrays.asList(align.getRowLabels());
+            int notFoundCount=0;
+            for (Iterator<String> iterator = alignLabels.iterator(); iterator.hasNext();) {
+                String next = iterator.next();
+                if (!tree.getLabelsByDFS().contains(next)) {
+                    System.out.println("Alignment label \""+next+"\" not found in given tree labels.");
+                    notFoundCount++;
+                }
+            }
+            if (notFoundCount>0) {System.exit(1);}
+            alignLabels=null;
+            
+            
             
             //PREPARE ALL PRUNING EXPERIMENT FILES (Ax, Tx, Rx)
             //Ax: the pruned alignments
@@ -408,7 +423,6 @@ public class PrunedTreeGenerator {
             
             
             //if leaf, removes from multiple align
-            //and export this leave to Ax it file
             ArrayList<Fasta> leavesRemoved=new ArrayList<>();
             if (Nx.isLeaf()) {
                 leavesRemoved.add(alignCopy.getFasta(Nx.getLabel(), false));
@@ -422,7 +436,7 @@ public class PrunedTreeGenerator {
                 //so we need to remove node AFTER this this transversal postorder
                 while (DFSenum.hasMoreElements()) {
                     nextNx=DFSenum.nextElement();
-                    //if leaf, removes and export
+                    //if leaf, removes
                     if (nextNx.isLeaf()) {
                         leavesRemoved.add(alignCopy.getFasta(nextNx.getLabel(), false));
                         alignCopy.removeSequence(nextNx.getLabel());
@@ -683,7 +697,7 @@ public class PrunedTreeGenerator {
 
             String expString="R"+i+"_nx"+nx_nodeId+"_la"+Nx.getLabel();
             for (int j = 0; j < R.length; j++) {
-                System.out.println("Preparing "+(j+1)+"th read query files: R="+Arrays.toString(R)+" ; Rsd="+Rsd);
+                System.out.println("Preparing "+(j+1)+"th query read length in R="+Arrays.toString(R)+" ; Rsd="+Rsd);
                 //prepare the corresponding output files
                 String readFileString=expString+"_r"+R[j]+".fasta";
                 File Rxj=new File(RxDir+File.separator+readFileString);
@@ -713,11 +727,18 @@ public class PrunedTreeGenerator {
                     //and standard deviation.
                     int v_length = new Double(0.0+r+rand.nextGaussian()*Rsd).intValue();
                     //System.out.println(expString+" v_length= "+v_length);
+                    //if generated length is smaller than sequence length
                     if (v_length>=Rmin && v_length<seqNoGaps.length()) {
                         //select an uniformely distibution position in [0,seqLength-v_length]
                         int p=rand.nextInt(seqNoGaps.length()-v_length+1);//this is an exclusive upper bound, so +1 to include last possibility
                         String read=next.getSequence(true).substring(p, p+v_length);
                         Fasta n=new Fasta(next.getHeader()+"_r"+R[j]+"_"+p+"_"+(p+v_length-1), read);
+                        fw.append(n.getFormatedFasta()+"\n");
+                    //if generated length longer than sequence, take whole sequence
+                    } else if (v_length>=Rmin) {
+                        int p=0;//this is an exclusive upper bound, so +1 to include last possibility
+                        String read=next.getSequence(true);
+                        Fasta n=new Fasta(next.getHeader()+"_r"+R[j]+"_"+p+"_"+read.length(), read);
                         fw.append(n.getFormatedFasta()+"\n");
                     }
                 }

@@ -124,8 +124,10 @@ public class DistanceGenerator {
                 for (int i = 0; i < EPAJPlaceFiles.size(); i++) {
                     Path currentJPlaceFile = EPAJPlaceFiles.get(i);
                     String experimentLabel=currentJPlaceFile.getParent().getFileName().toString();
-                    String readLabel=currentJPlaceFile.getFileName().toString().split("\\.")[1]; //SECOND element in filename in pplacer ex: RAxML_portableTree.R0_nx110_la_r150.jplace
+                    //SECOND element in filename in pplacer ex: RAxML_portableTree. R63_nx63_la1a.HCV_1_r200 .jplace
+                    String readLabel=currentJPlaceFile.getFileName().toString().split("\\.jplace$")[0].substring(19); 
                     String[]elts=readLabel.split("_");
+                    //ex: R63 nx63 la1a.HCV 1 r200
                     String readSize=elts[elts.length-1].substring(1);
                     int pruningNumber=Integer.parseInt(experimentLabel.split("_")[0].substring(1));
                     int prunedNodeId=Integer.parseInt(experimentLabel.split("_")[1].substring(2)); //i.e. Nx
@@ -207,7 +209,7 @@ public class DistanceGenerator {
                 for (int i = 0; i < PPLJPlaceFiles.size(); i++) {
                     Path currentJPlaceFile = PPLJPlaceFiles.get(i);
                     String experimentLabel=currentJPlaceFile.getParent().getFileName().toString();
-                    String readLabel=currentJPlaceFile.getFileName().toString().split("\\.")[0]; //FIRST element in filename in pplacer ex: R0_nx110_la_r150.aln.jplace
+                    String readLabel=currentJPlaceFile.getFileName().toString().split("\\.aln.jplace")[0]; //FIRST element in filename in pplacer ex: R0_nx110_la_r150.aln.jplace
                     String[]elts=readLabel.split("_");
                     String readSize=elts[elts.length-1].substring(1);
                     int pruningNumber=Integer.parseInt(experimentLabel.split("_")[0].substring(1));
@@ -287,16 +289,21 @@ public class DistanceGenerator {
 
                     //experiment
                     String experimentLabel=currentJPlaceFile.getParent().getParent().getParent().getFileName().toString(); //3 times get parent  Ax_nxx_xxx/kx_ax/logs/jplace
+                    System.out.print("experimentLabel:"+experimentLabel);
                     int pruningNumber=Integer.parseInt(experimentLabel.split("_")[0].substring(1));
                     int prunedNodeId=Integer.parseInt(experimentLabel.split("_")[1].substring(2)); //i.e. Nx
-                    //elements in filename in pplacer ex: R0_nx110_la_r150.aln.jplace, holds placements_ at the beginning, so substring starts at 11
-                    String readLabel=currentJPlaceFile.getFileName().toString().split("\\.")[0].substring(11); 
-                    String[]elts=readLabel.split("_");
-                    String readSize=elts[elts.length-1].substring(1);
-                    System.out.println("experimentLabel:"+experimentLabel+" read:"+readLabel);
-                    //dbSize: exemple: placements_R0_nx4_la_r300.fasta_medium.jplace  placements_R0_nx4_la_r300.fasta_small.jplace
-                    elts=currentJPlaceFile.getFileName().toString().split("_");
-                    String dbSize=elts[elts.length-1].split("\\.")[0];
+                    //elements in filename in rappas ex: placements_ R3_nx3_la_r900.fasta_medium .jplace
+                    String infos=currentJPlaceFile.getFileName().toString().split("\\.jplace$")[0].substring(11);  //11, to remove prefix "placements_"
+                    String readLabel=infos.split("\\.")[0];
+                     System.out.print(" read:"+readLabel);
+                    //elements in filename in rappas ex: R3 nx3 la r900.fasta medium
+                    String[]elts=infos.split("_");
+                    String dbSize=elts[elts.length-1];
+                    System.out.print(" dbSize:"+dbSize);
+                    String readSizeElts=elts[elts.length-2];
+                    String readSize=readSizeElts.substring(1, readSizeElts.length()-6);
+                    System.out.println(" readSize:"+readSize);
+
 
                     //pruning infos
                     int expectedPlacementIndex=NxIndex.get(prunedNodeId);

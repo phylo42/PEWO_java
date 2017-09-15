@@ -84,7 +84,7 @@ public class RAPPASExperimentDBInRAM {
             }
             
             //load list of k/alpha combinations
-            String firstExperimentLabel=exp.prunedAlignmentsFiles.get(0).getName().split("\\.")[0];
+            String firstExperimentLabel=exp.prunedAlignmentsFiles.get(0).getName().split("\\.align$")[0];
             File DxDir=new File(exp.workDir.getCanonicalPath()+File.separator+"Dx");
             File DxA0Dir=new File(exp.workDir.getCanonicalPath()+File.separator+"Dx"+File.separator+firstExperimentLabel);
             File[] listFiles = DxA0Dir.listFiles();
@@ -148,7 +148,7 @@ public class RAPPASExperimentDBInRAM {
                 for (int i = 0; i < exp.prunedAlignmentsFiles.size(); i++) {
                     File Ax = exp.prunedAlignmentsFiles.get(i);
                     File Tx = exp.prunedTreesFiles.get(i);
-                    String experimentLabel=Ax.getName().split("\\.")[0];
+                    String experimentLabel=Ax.getName().split("\\.align$")[0];
                     //list Rx files corresponding to this Ax
                     File RxDir=new File(exp.workDir.getCanonicalPath()+File.separator+"Rx");
                     listFiles = RxDir.listFiles((File dir, String name) -> name.startsWith("R"+experimentLabel.substring(1))); //(A->R)XX_nxXXX
