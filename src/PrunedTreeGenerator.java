@@ -151,7 +151,7 @@ public class PrunedTreeGenerator {
                 if (args.length>9) {
                     ptg.minK=Integer.parseInt(args[9]);
                     ptg.maxK=Integer.parseInt(args[10]);
-                    ptg.factorIncrement=Integer.parseInt(args[11]);
+                    ptg.kIncrement=Integer.parseInt(args[11]);
                     ptg.minFactor=Float.parseFloat(args[12]);
                     ptg.maxFactor=Float.parseFloat(args[13]);
                     ptg.factorIncrement=Float.parseFloat(args[14]);
@@ -167,6 +167,7 @@ public class PrunedTreeGenerator {
             System.out.println("HMMBuildExecutable: "+ptg.HMMBUILDPath);
             System.out.println("alignFile: "+ptg.alignFile);
             System.out.println("treeFile: "+ptg.treeFile);
+            System.out.println("percentPruning: "+ptg.percentPruning);
             System.out.println("readSizes: "+Arrays.toString(ptg.R));
             System.out.println("branchPerEdge: "+ptg.branchPerEdge);
             System.out.println("mink:"+ptg.minK);

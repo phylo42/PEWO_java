@@ -244,7 +244,7 @@ public class RAPPASExperiment {
             //ex: qsub -t 1-100 ./qsub_array_loader.sh /ngs/linard/tests_accuracy/pplacer_16s/Dx 
             qsubCommand=new File(DxDir.getAbsolutePath()+File.separator+"qsub_rappas_placement");
             fw=new FileWriter(qsubCommand);
-            fw.append("qsub -t 1-"+commandCount+" -e "+qSubLogs.getAbsolutePath()+" -o "+qSubLogs.getAbsolutePath()+" "+shScript.getAbsolutePath()+" "+DxDir.getAbsolutePath());
+            fw.append("qsub -pe smp 2 -t 1-"+commandCount+" -e "+qSubLogs.getAbsolutePath()+" -o "+qSubLogs.getAbsolutePath()+" "+shScript.getAbsolutePath()+" "+DxDir.getAbsolutePath());
             fw.close();            
             Files.setPosixFilePermissions(qsubCommand.toPath(), exp.perms);
             

@@ -119,10 +119,10 @@ public class RAPPASExperimentDBInRAM {
 
             
             //intermediate array loader scripts
-            //version 18G (k<8)
+            //version 18G (k<10)
             File shScript=new File(DxDir.getAbsolutePath()+File.separator+"array_loader_placement_18G.sh");
-            //version 34G (k>=8)
-            File shScript2=new File(DxDir.getAbsolutePath()+File.separator+"array_loader_placement_34G.sh");
+            //version 26G (k>=10)
+            File shScript2=new File(DxDir.getAbsolutePath()+File.separator+"array_loader_placement_26G.sh");
 
             //then write the qsub_command in a file
             //ex: qsub -t 1-100 ./qsub_array_loader.sh /ngs/linard/tests_accuracy/pplacer_16s/Dx 
@@ -167,11 +167,14 @@ public class RAPPASExperimentDBInRAM {
                             File RxFile = listFiles[j];
                             //single, place on DB medium, then DB small
                             StringBuilder sb=new StringBuilder();
-                            if (k<8)
-                                sb.append("/usr/bin/java -Xmx16000m -Xms16000m -jar "+exp.RAPPAJar.getAbsolutePath()+" ");
+                            sb.append("/usr/bin/java ");
+                            if (k<10)
+                                sb.append("-Xmx16000m -Xms16000m ");
                             else {
-                                sb.append("/usr/bin/java -Xmx32000m -Xms32000m -jar "+exp.RAPPAJar.getAbsolutePath()+" ");
+                                sb.append("-Xmx24000m -Xms24000m ");
                             }
+                            sb.append("-jar "+exp.RAPPAJar.getAbsolutePath()+" ");
+                            sb.append("-XX:+UseG1GC -XX:ConcGCThreads=1 -XX:+PrintCommandLineFlags -XX:+AggressiveOpts "); //memory fine control
                             sb.append("-m b -a "+new Float(alpha).toString()+" -k "+new Integer(k).toString()+" ");
                             sb.append("-t "+Tx.getAbsolutePath()+" ");
                             sb.append("-i "+Ax.getAbsolutePath()+" ");
@@ -184,6 +187,7 @@ public class RAPPASExperimentDBInRAM {
                             sb.append("--dbinram ");
                             sb.append("-q "+RxFile.getAbsolutePath()+" ");
                             sb.append("--nsbound -100000.0 "); //skip calibration for this test.
+                            sb.append("--unihash");
                             sb.append("\n");
                             sbPLACEMENTCommands.append(sb.toString());  
 
@@ -199,7 +203,7 @@ public class RAPPASExperimentDBInRAM {
                 Files.setPosixFilePermissions(fileCommandList.toPath(), exp.perms);
 
                 //add line in qsub_command file
-                fwQsubCommand.append("qsub -N RAP_k"+k+" -t 1-"+commandCount+" -e "+qSubLogs.getAbsolutePath()+" -o "+qSubLogs.getAbsolutePath());
+                fwQsubCommand.append("qsub -pe smp 2 -N RAP_k"+k+" -t 1-"+commandCount+" -e "+qSubLogs.getAbsolutePath()+" -o "+qSubLogs.getAbsolutePath());
                 if (k<8) {
                     fwQsubCommand.append(" "+shScript.getAbsolutePath());
                 } else {
@@ -221,13 +225,19 @@ public class RAPPASExperimentDBInRAM {
             resourceAsStream.close();
             Files.setPosixFilePermissions(shScript.toPath(), exp.perms);
 
-            resourceAsStream = exp.getClass().getClassLoader().getResourceAsStream("scripts/array_loader_placement_34G.sh");
+            resourceAsStream = exp.getClass().getClassLoader().getResourceAsStream("scripts/array_loader_placement_26G.sh");
             Files.copy(resourceAsStream, shScript2.toPath(), StandardCopyOption.REPLACE_EXISTING);
             resourceAsStream.close();
             Files.setPosixFilePermissions(shScript2.toPath(), exp.perms);            
             
+            //write script helping to relaunch failed jobs
+            File shScript3=new File(DxDir.getAbsolutePath()+File.separator+"script_relaunch_failed.sh");
+            resourceAsStream = exp.getClass().getClassLoader().getResourceAsStream("scripts/script_relaunch_failed.sh");
+            Files.copy(resourceAsStream, shScript3.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            resourceAsStream.close();
+            Files.setPosixFilePermissions(shScript3.toPath(), exp.perms);   
 
-
+            System.out.println("DONE!");
             
             System.exit(0);
             
