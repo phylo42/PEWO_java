@@ -77,8 +77,9 @@ public class PrunedTreeGenerator {
     public File fileDtx=null;
     public File fileD2tx=null;
     
-    //pruning percent
-    double percentPruning=0.5; //10%
+    //pruning fraction
+    //double percentPruning=0.5; //10%
+    int pruningCount=100;
 
     //read generation: nomral distrib around mean R with sd (R/4)
     //and min length Rmin
@@ -136,7 +137,8 @@ public class PrunedTreeGenerator {
                 ptg.HMMALIGNPath=new File(ptg.HMMBinariesDir.getAbsolutePath()+File.separator+"hmmalign");
                 ptg.alignFile=new File(args[3]);
                 ptg.treeFile=new File(args[4]);
-                ptg.percentPruning=Double.parseDouble(args[5]);
+                //ptg.percentPruning=Double.parseDouble(args[5]);
+                ptg.pruningCount=Integer.parseInt(args[5]);
                 String[] readSizes=args[6].split(",");
                 ptg.R=new int[readSizes.length];
                 for (int i = 0; i < readSizes.length; i++) {
@@ -167,7 +169,8 @@ public class PrunedTreeGenerator {
             System.out.println("HMMBuildExecutable: "+ptg.HMMBUILDPath);
             System.out.println("alignFile: "+ptg.alignFile);
             System.out.println("treeFile: "+ptg.treeFile);
-            System.out.println("percentPruning: "+ptg.percentPruning);
+            //System.out.println("percentPruning: "+ptg.percentPruning);
+            System.out.println("pruningCount: "+ptg.pruningCount);
             System.out.println("readSizes: "+Arrays.toString(ptg.R));
             System.out.println("branchPerEdge: "+ptg.branchPerEdge);
             System.out.println("mink:"+ptg.minK);
@@ -307,10 +310,10 @@ public class PrunedTreeGenerator {
         
         //==> modif pr que prunedAlignmentsFiles et prunedTreesFiles aient même taille que actuallyPrunedNodeIdsIndexes
         
-        //to ensure consistent direcory names (alpha-> _ax_)
+        //to ensure consistent direcory names (alpha-> _ax.xx_)
         NumberFormat nf = NumberFormat.getNumberInstance();
-        nf.setMinimumFractionDigits(1);
-        nf.setMaximumFractionDigits(1);
+        nf.setMinimumFractionDigits(2);
+        nf.setMaximumFractionDigits(2);
         
         //get list of internal Nx ids
         Integer[] nodeIds=new Integer[tree.getNodeIdsByDFS().size()];
@@ -320,7 +323,10 @@ public class PrunedTreeGenerator {
         //not shuffled
         //nodeIds=tree.getNodeIdsByDFS().toArray(nodeIds);
         //define first x% as pruning experiments
-        prunedNodeIds=Arrays.copyOfRange(nodeIds, 0, new Double(percentPruning*nodeIds.length).intValue());
+        if(pruningCount>nodeIds.length) {
+            pruningCount=nodeIds.length;
+        }
+        prunedNodeIds=Arrays.copyOfRange(nodeIds, 0, pruningCount);
         System.out.println("# pruning attempts: "+prunedNodeIds.length);
         System.out.println("prunedNodeIds, selected for pruning attempts (raw): "+Arrays.toString(prunedNodeIds));
         //sort to make more comprehensive output matrices Dtx and D'tx
@@ -696,7 +702,7 @@ public class PrunedTreeGenerator {
 //            System.out.println("----------------");
 
             ////////////////////////////////////////////////////////////////////
-            //fourth, build virtual read datasets from removedLeaves
+            //fourth, build Rx virtual read datasets from removedLeaves
 
             String expString="R"+i+"_nx"+nx_nodeId+"_la"+Nx.getLabel();
             for (int j = 0; j < R.length; j++) {
@@ -714,36 +720,73 @@ public class PrunedTreeGenerator {
                 for (Iterator<String> it = leavesRemoved.iterator(); it.hasNext();) {
                     String next = it.next();
                     String seqNoGaps=align.getFasta(next, false).getSequence(true);
-                    //select normally distibuted read length v_length
-                    //centered around R[j] and with standard dev of value Rsd
-                    //mySample = r.nextGaussian()*desiredStandardDeviation+desiredMean
-                    //The mean of the sample point is 0, and the standard deviation is 1;
-                    //that means that the original sample is also its own z-score.
-                    //absolute value of z represents the distance between
-                    //the raw score and the population mean in units of the
-                    //standard deviation.
-                    //The formula is z=(x-mean)/stdev, so with the default values z=x.
-                    //If we wanted to retain the z score for the sample but
-                    //change the mean and stdev: 
-                    //z*stdev + mean = x' where z=x, and x' represents
-                    //the sample from the distribution with the desired mean
-                    //and standard deviation.
-                    int v_length = new Double(0.0+r+rand.nextGaussian()*Rsd).intValue();
-                    //System.out.println(expString+" v_length= "+v_length);
-                    //if generated length is smaller than sequence length
-                    if (v_length>=Rmin && v_length<seqNoGaps.length()) {
-                        //select an uniformely distibution position in [0,seqLength-v_length]
-                        int p=rand.nextInt(seqNoGaps.length()-v_length+1);//this is an exclusive upper bound, so +1 to include last possibility
-                        String read=seqNoGaps.substring(p, p+v_length);
-                        Fasta n=new Fasta(next+"_r"+R[j]+"_"+p+"_"+(p+v_length-1), read);
-                        fw.append(n.getFormatedFasta()+"\n");
-                    //if generated length longer than sequence, take whole sequence
-                    } else if (v_length>=Rmin) {
-                        int p=0;//this is an exclusive upper bound, so +1 to include last possibility
+                    
+           
+                    //build leaf_length/readLength virtual reads
+                    //if virtual read length > to seqLength, use full seqLength
+                    int readCount=seqNoGaps.length()/r;
+                    
+                    if (readCount==0) { // because readLength inferior to r
+                        int p=0;
                         String read=seqNoGaps;
                         Fasta n=new Fasta(next+"_r"+R[j]+"_"+p+"_"+read.length(), read);
-                        fw.append(n.getFormatedFasta()+"\n");
+                        fw.append(n.getFormatedFasta()+"\n"); 
                     }
+                    
+                    for (int k = 0; k < readCount; k++) {
+                        //select normally distibuted read length v_length
+                        //centered around R[j] and with standard dev of value Rsd
+                        //mySample = r.nextGaussian()*desiredStandardDeviation+desiredMean
+                        //The mean of the sample point is 0, and the standard deviation is 1;
+                        //that means that the original sample is also its own z-score.
+                        //absolute value of z represents the distance between
+                        //the raw score and the population mean in units of the
+                        //standard deviation.
+                        //The formula is z=(x-mean)/stdev, so with the default values z=x.
+                        //If we wanted to retain the z score for the sample but
+                        //change the mean and stdev: 
+                        //z*stdev + mean = x' where z=x, and x' represents
+                        //the sample from the distribution with the desired mean
+                        //and standard deviation.
+                        int v_length = new Double(0.0+r+rand.nextGaussian()*Rsd).intValue();
+                        //System.out.println(expString+" v_length= "+v_length);
+                        
+                        //if generated length is smaller than sequence length
+                        if (v_length>=Rmin) {
+                            //select start position 
+                            int pStart= k*r;
+                            //select end position, v_length or less if overcome last position
+                            int pEnd= pStart+v_length;
+                            if (pEnd>seqNoGaps.length()) { pEnd=seqNoGaps.length(); }
+                            String read=seqNoGaps.substring(pStart, pEnd);
+                            Fasta n=new Fasta(next+"_r"+R[j]+"_"+pStart+"_"+pEnd, read);
+                            fw.append(n.getFormatedFasta()+"\n");
+                        }
+                        
+
+                    }
+
+                    
+//                    //below previous algo, where a single read per leaf was
+//                    //extract randomly along leaf seqeunce
+//                    
+//                    int v_length = new Double(0.0+r+rand.nextGaussian()*Rsd).intValue();
+//                    //if generated length is smaller than sequence length
+//                    if (v_length>=Rmin && v_length<seqNoGaps.length()) {
+//                        //select an uniformely distibution position in [0,seqLength-v_length]
+//                        int pStart=rand.nextInt(seqNoGaps.length()-v_length+1);//this is an exclusive upper bound, so +1 to include last possibility
+//                        String read=seqNoGaps.substring(pStart, pStart+v_length);
+//                        Fasta n=new Fasta(next+"_r"+R[j]+"_"+pStart+"_"+(pStart+v_length-1), read);
+//                        fw.append(n.getFormatedFasta()+"\n");
+//                    //if generated length longer than sequence, take whole sequence
+//                    } else if (v_length>=Rmin) {
+//                        int pStart=0;//this is an exclusive upper bound, so +1 to include last possibility
+//                        String read=seqNoGaps;
+//                        Fasta n=new Fasta(next+"_r"+R[j]+"_"+pStart+"_"+read.length(), read);
+//                        fw.append(n.getFormatedFasta()+"\n");
+//                    }
+                    
+                    
                 }
                 fw.close();
                 
@@ -809,7 +852,7 @@ public class PrunedTreeGenerator {
             File ARDir=new File(workDir.getAbsolutePath()+File.separator+"Dx"+File.separator+experimentAlignmentLabel+File.separator+"AR");
             ARDir.mkdir();
             System.out.println("Build AR commands in: "+ARDir.getAbsolutePath());
-            ARProcessLauncher arpl=new ARProcessLauncher(ARProcessLauncher.AR_PAML,ARExecutablePath, false);
+            ARProcessLauncher arpl=new ARProcessLauncher(ARExecutablePath, false,ARProcessLauncher.AR_PAML);
             
             //prepare corresponding AR commands (with PAML)
             String ARCommand = arpl.prepareAR(ARDir, fileRelaxedAlignmentPhylip, fileRelaxedTreewithBLNoInternalNodeLabels);

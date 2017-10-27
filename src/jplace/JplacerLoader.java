@@ -4,13 +4,12 @@ package jplace;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Stream;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
-import org.json.simple.JSONValue;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import tree.NewickReader;
@@ -34,10 +33,14 @@ public class JplacerLoader {
     //these are translated from jplace {x} nodeIds to the PhyloTree nodeIds
     //by this loader, i.e. this map contains the nodeIds of the PhyloTree,
     //not the ids of the jplace file itself
-    //map(sequence_label)=node_Id
-    HashMap<String,Integer> bestPlacements=new HashMap<>();
+    //map(sequence_label)=ArrayList<JSONArray>
+    HashMap<String,ArrayList<Integer>> nodeIds=new HashMap<>();
+    HashMap<String,ArrayList<Double>> weightRatio=new HashMap<>();
     
-
+    
+    int edgeIdIndex=-1;
+    int weightRatioIndex=-1;
+    
     public JplacerLoader(File jplaceFile) {
     
         try {
@@ -54,35 +57,55 @@ public class JplacerLoader {
             
             
             //determine which p object columns are the edgeIds
-            int edgeIdIndex=-1;
             JSONArray fields=(JSONArray)topLevel.get("fields");
             for (int i = 0; i < fields.size(); i++) {
                 String field = (String)fields.get(i);
                 if (field.equals("edge_num")) {
                     edgeIdIndex=i;
-                    break;
+                }
+                if (field.equals("like_weight_ratio")) {
+                    weightRatioIndex=i;
                 }
             }
             
-            //load all placements
+            //load all nodeIds
             JSONArray placements=(JSONArray)topLevel.get("placements");
             
             for (int i = 0; i < placements.size(); i++) {
-                JSONObject pObject= (JSONObject)placements.get(i);
+                JSONObject placementsObject= (JSONObject)placements.get(i);
                 //take best placement (1st in list)
-                JSONArray pFields=(JSONArray)((JSONArray)pObject.get("p")).get(0);
+                JSONArray pFields=(JSONArray)placementsObject.get("p");
                 //System.out.println(pFields);
                 //best edge
                 //System.out.println(pFields.get(edgeIdIndex)+" "+pFields.get(edgeIdIndex).getClass());
-                Long bestEdgeJPlaceId=(Long)pFields.get(edgeIdIndex);
+                
+                ArrayList<Integer> nodeIdList=new ArrayList<>(pFields.size());
+                ArrayList<Double> weightRatiosList=new ArrayList<>(pFields.size());
+                for (int j = 0; j < pFields.size(); j++) {
+                    JSONArray stats = (JSONArray)pFields.get(j);
+                    Long edgeJPlaceId=(Long)stats.get(edgeIdIndex);
+                    //equivalent in phylotree
+                    int nodeId=tree.getJplaceMapping(edgeJPlaceId.intValue());
+                    nodeIdList.add(nodeId);                    
+                    Object o=stats.get(weightRatioIndex);
+                    if (o.getClass().getName().contains("Double")) {
+                        weightRatiosList.add((Double)stats.get(weightRatioIndex));
+                    } else if (o.getClass().getName().contains("Long")) {
+                        weightRatiosList.add(new Double(((Long)stats.get(weightRatioIndex)).doubleValue()));
+                    }
+                    
+                   
+                }
+                
+                
                 
                 //list of sequences associate to this placement
                 //this will be either a "n" field (name only,EPA) or a "nm" field (name mulitplicity,  pplacer and us)
                 boolean isNm=true;
-                JSONArray pNm=(JSONArray)pObject.get("nm");
+                JSONArray pNm=(JSONArray)placementsObject.get("nm");
                 if (pNm==null) {
                     isNm=false;
-                    pNm=(JSONArray)pObject.get("n");
+                    pNm=(JSONArray)placementsObject.get("n");
                 }
                 //System.out.println("isNm:"+isNm);
 
@@ -93,13 +116,8 @@ public class JplacerLoader {
                     } else {
                         n=(String)pNm.get(j);
                     }
-                    //equivalent in phylotree
-                    //System.out.println("bestEdgeJPlaceId:"+bestEdgeJPlaceId);
-                    int nodeId=tree.getJplaceMapping(bestEdgeJPlaceId.intValue());
-                    bestPlacements.put(n, nodeId);
-                    //System.out.println( n+"->jplace:"+bestEdgeJPlaceId+"->phylotree_nodeId:"+nodeId
-                    //                    +"->phylonode:"+tree.getById(nodeId));
-                    
+                    this.nodeIds.put(n, nodeIdList);
+                    this.weightRatio.put(n, weightRatiosList);
                 }
                 
                 
@@ -116,11 +134,19 @@ public class JplacerLoader {
     }
 
     /**
-     * map(sequence_name)=this.phylotree_nodeId
+     * map(sequence_name)=this.phylotree_nodeIds
      * @return 
      */
-    public HashMap<String, Integer> getBestPlacements() {
-        return bestPlacements;
+    public HashMap<String, ArrayList<Integer>> getNodeIds() {
+        return nodeIds;
+    }
+    
+    /**
+     * map(sequence_name)=weightRatios
+     * @return 
+     */
+    public HashMap<String, ArrayList<Double>> getWeightRatios() {
+        return weightRatio;
     }
 
     /**
@@ -137,11 +163,9 @@ public class JplacerLoader {
     
     public static void main(String[] args) {
         //tests
-        File test=new File("/home/ben/Downloads/placementsR0_nx110_la_r300.fasta.jplace");
-        File test2=new File("/home/ben/Downloads/placementsR0_nx110_la_r150.fasta.jplace");
+        File test=new File("/home/ben/Dropbox/viromeplacer/test_datasets/WD_LARGE_PAML/logs/placements_mod_p4z1r36_query_only2.fasta_union.jplace");
         JplacerLoader jl=new JplacerLoader(test);
-        System.out.println("##############");
-        JplacerLoader jl2=new JplacerLoader(test2);
+
     }
     
     

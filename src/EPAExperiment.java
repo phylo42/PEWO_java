@@ -1,4 +1,5 @@
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -99,6 +100,11 @@ public class EPAExperiment {
                         return false;
                     }
                 });
+                
+                //create epa_pipeline.sh epaScript
+                File epaScript=new File(EPAxAxDir.getAbsolutePath()+File.separator+"epa_pipeline.sh");
+                BufferedWriter fwEpaScript = Files.newBufferedWriter(epaScript.toPath());
+                //add command for each read
                 for (int j = 0; j < listFiles.length; j++) {
                     File f = listFiles[j];
                     String readAlignLabel=f.getName().split("\\.aln\\.fasta$")[0];
@@ -110,12 +116,17 @@ public class EPAExperiment {
                             "-n "+readAlignLabel+" " +
                             "-s "+f.getAbsolutePath()+" " +
                             "-t "+exp.prunedTreesFiles.get(i).getAbsolutePath()
-                            
                     );
-                    //do its qsub counterpart
-                    sbQsubCommands.append("echo \""+sbRAxMLCommand.toString()+"\" |  qsub -N EPAx_"+readAlignLabel+
-                            " -wd "+EPAxAxDir.getAbsolutePath()+"\n");
+                    fwEpaScript.append(sbRAxMLCommand.toString());
+                    sbRAxMLCommand=null;
+                    fwEpaScript.append("\n");
                 }
+                fwEpaScript.close();
+                Files.setPosixFilePermissions(epaScript.toPath(), exp.perms);
+                
+                //add qsub epa script call 
+                sbQsubCommands.append("echo \""+epaScript.getAbsolutePath()+"\" |  qsub -N EPAx_"+experimentLabel+
+                        " -wd "+EPAxAxDir.getAbsolutePath()+"\n");
             }
             File qsubEPACommands=new File(EPAxDir.getAbsolutePath()+File.separator+"qsub_epa_commands");
             fw = new FileWriter(qsubEPACommands);

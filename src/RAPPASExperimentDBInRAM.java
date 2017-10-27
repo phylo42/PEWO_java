@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -51,6 +52,7 @@ public class RAPPASExperimentDBInRAM {
                         PosixFilePermission.OTHERS_EXECUTE
                     );
     
+
     
     public static void main(String[] args) {
         
@@ -116,13 +118,16 @@ public class RAPPASExperimentDBInRAM {
             File fileCommandList=null;
             FileWriter fwCommandList=null;
             
-
+            //to ensure consistent direcory names (alpha-> _ax.xx_)
+            NumberFormat nf = NumberFormat.getNumberInstance();
+            nf.setMinimumFractionDigits(2);
+            nf.setMaximumFractionDigits(2);
             
             //intermediate array loader scripts
             //version 18G (k<10)
-            File shScript=new File(DxDir.getAbsolutePath()+File.separator+"array_loader_placement_18G.sh");
+            File shScript=new File(DxDir.getAbsolutePath()+File.separator+"array_loader_placement_20G.sh");
             //version 26G (k>=10)
-            File shScript2=new File(DxDir.getAbsolutePath()+File.separator+"array_loader_placement_26G.sh");
+            File shScript2=new File(DxDir.getAbsolutePath()+File.separator+"array_loader_placement_48G.sh");
 
             //then write the qsub_command in a file
             //ex: qsub -t 1-100 ./qsub_array_loader.sh /ngs/linard/tests_accuracy/pplacer_16s/Dx 
@@ -158,41 +163,62 @@ public class RAPPASExperimentDBInRAM {
                     for (Iterator<Float> iterator1 = allAlpha.iterator(); iterator1.hasNext();) {
                         Float alpha = iterator1.next();
 
-                        String  kAlphaDirName= "k"+k+"_a"+alpha;
+                        String  kAlphaDirName= "k"+k+"_a"+nf.format(alpha);
                         File  DxAxKAlphaDir= new File(DxDir.getAbsolutePath()+File.separator+experimentLabel+File.separator+kAlphaDirName);
-                        System.out.println("placement for k="+k+" alpha="+alpha+" in "+experimentLabel+"/"+DxAxKAlphaDir.getName());
+                        System.out.println("placement for k="+k+" alpha="+nf.format(alpha)+" in "+experimentLabel+"/"+DxAxKAlphaDir.getName());
 
-                        //for all query reads
-                        for (int j = 0; j < listFiles.length; j++) {
-                            File RxFile = listFiles[j];
-                            //single, place on DB medium, then DB small
-                            StringBuilder sb=new StringBuilder();
-                            sb.append("/usr/bin/java ");
-                            if (k<10)
-                                sb.append("-Xmx16000m -Xms16000m ");
-                            else {
-                                sb.append("-Xmx24000m -Xms24000m ");
-                            }
-                            sb.append("-jar "+exp.RAPPAJar.getAbsolutePath()+" ");
-                            sb.append("-XX:+UseG1GC -XX:ConcGCThreads=1 -XX:+PrintCommandLineFlags -XX:+AggressiveOpts "); //memory fine control
-                            sb.append("-m b -a "+new Float(alpha).toString()+" -k "+new Integer(k).toString()+" ");
-                            sb.append("-t "+Tx.getAbsolutePath()+" ");
-                            sb.append("-i "+Ax.getAbsolutePath()+" ");
-                            sb.append("-w "+DxAxKAlphaDir+" ");
-                            sb.append("--ardir "+DxAxKAlphaDir+File.separator+"AR ");
-                            //sb.append("--extree "+DxAxKAlphaDir+File.separator+"extended_trees "); //TODO: currently raise bugs, ids mappings problems...
-                            sb.append("-v 1 ");
-                            sb.append("--skipdbfull ");
-                            sb.append("--froot "); //not necessary, as trees from Tx directory should already be rooted and with added_root node
-                            sb.append("--dbinram ");
-                            sb.append("-q "+RxFile.getAbsolutePath()+" ");
-                            sb.append("--nsbound -100000.0 "); //skip calibration for this test.
-                            sb.append("--unihash");
-                            sb.append("\n");
-                            sbPLACEMENTCommands.append(sb.toString());  
 
-                            commandCount++;
+                        //single, place on DB medium, then DB small
+                        StringBuilder sb=new StringBuilder();
+                        sb.append("/usr/bin/java ");
+                        if ( (k<=9) && (alpha>1.0) )
+                            sb.append("-Xmx16000m -Xms16000m ");
+                        else {
+                            sb.append("-Xmx44000m -Xms44000m ");
                         }
+                        sb.append("-jar "+exp.RAPPAJar.getAbsolutePath()+" ");
+                        
+                        //best jvm optimization so far:
+                        //-XX:+PrintCommandLineFlags -XX:+AggressiveOpts -XX:+UseParallelGC -XX:-UseAdaptiveSizePolicy
+                        //-XX:+UseParallelOldGC -XX:ParallelGCThreads=1
+                        //-XX:NewSize=20000m -XX:MaxNewSize=20000m -XX:SurvivorRatio=2 -XX:InitiatingHeapOccupancyPercent=95  
+                        //old one
+//                        sb.append("-XX:+PrintCommandLineFlags -XX:+AggressiveOpts");
+//                        sb.append("-XX:+UseParallelGC -XX:-UseAdaptiveSizePolicy -XX:+UseParallelOldGC -XX:ParallelGCThreads=1 ");
+//                        sb.append("-XX:SurvivorRatio=2 -XX:InitiatingHeapOccupancyPercent=95 ");
+//                        if ( (k<=9) && (alpha>1.0) ) {
+//                            sb.append("-XX:NewSize=8000m -XX:MaxNewSize=8000m ");
+//                        } else {
+//                            sb.append("-XX:NewSize=22000m -XX:MaxNewSize=22000m ");
+//                        }
+                        //new
+                        sb.append("-XX:+UseG1GC -XX:InitiatingHeapOccupancyPercent=95 -XX:ParallelGCThreads=1 -XX:ConcGCThreads=1 ");
+                        
+                        
+                        sb.append("-m b -a "+nf.format(alpha)+" -k "+new Integer(k).toString()+" ");
+                        sb.append("-t "+Tx.getAbsolutePath()+" ");
+                        sb.append("-r "+Ax.getAbsolutePath()+" ");
+                        sb.append("-w "+DxAxKAlphaDir+" ");
+                        sb.append("--arbinary baseml"); //not used as --ardir is settled, but allow the program to know it's baseml
+                        sb.append("--ardir "+DxAxKAlphaDir+File.separator+"AR ");
+                        //sb.append("--extree "+DxAxKAlphaDir+File.separator+"extended_trees "); //TODO: currently raise bugs, ids mappings problems...
+                        sb.append("-v 1 ");
+                        sb.append("--skipdbfull ");
+                        sb.append("--force-root "); //not necessary, as trees from Tx directory should already be rooted and with added_root node
+                        sb.append("--dbinram ");
+                        sb.append("--nsbound -100000.0 "); //skip calibration for this test.
+                        sb.append("--no-reduction "); //do not modify input alignment
+                        
+                        //for all query reads
+                        sb.append("-q "+listFiles[0]);
+                        for (int j = 1; j < listFiles.length; j++) {
+                            sb.append(","+listFiles[j].getAbsolutePath());
+                        }
+
+                        sb.append("\n");
+                        sbPLACEMENTCommands.append(sb.toString());  
+                        commandCount++;
+                        
                     }
                 } 
                 
@@ -204,7 +230,7 @@ public class RAPPASExperimentDBInRAM {
 
                 //add line in qsub_command file
                 fwQsubCommand.append("qsub -pe smp 2 -N RAP_k"+k+" -t 1-"+commandCount+" -e "+qSubLogs.getAbsolutePath()+" -o "+qSubLogs.getAbsolutePath());
-                if (k<8) {
+                if ( (k<=9) ) {
                     fwQsubCommand.append(" "+shScript.getAbsolutePath());
                 } else {
                     fwQsubCommand.append(" "+shScript2.getAbsolutePath());
@@ -220,12 +246,12 @@ public class RAPPASExperimentDBInRAM {
             Files.setPosixFilePermissions(qsubCommand.toPath(), exp.perms);
             
             //then write qsub array shell script in the working directory
-            InputStream resourceAsStream = exp.getClass().getClassLoader().getResourceAsStream("scripts/array_loader_placement_18G.sh");
+            InputStream resourceAsStream = exp.getClass().getClassLoader().getResourceAsStream("scripts/array_loader_placement_20G.sh");
             Files.copy(resourceAsStream, shScript.toPath(), StandardCopyOption.REPLACE_EXISTING);
             resourceAsStream.close();
             Files.setPosixFilePermissions(shScript.toPath(), exp.perms);
 
-            resourceAsStream = exp.getClass().getClassLoader().getResourceAsStream("scripts/array_loader_placement_26G.sh");
+            resourceAsStream = exp.getClass().getClassLoader().getResourceAsStream("scripts/array_loader_placement_48G.sh");
             Files.copy(resourceAsStream, shScript2.toPath(), StandardCopyOption.REPLACE_EXISTING);
             resourceAsStream.close();
             Files.setPosixFilePermissions(shScript2.toPath(), exp.perms);            

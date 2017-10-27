@@ -1,19 +1,16 @@
 
 import dtx.Dtx;
-import etc.Infos;
 import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -150,7 +147,7 @@ public class DistanceGenerator {
                     //System.out.println("experimentTree nodes ids by DFS:"+experimentTree.getNodeIdsByDFS());
                     //System.out.println("EPAJplace tree nodes by DFS:"+EPAJplace.getTree().getNodeIdsByDFS().stream().map((id)->EPAJplace.getTree().getById(id)).peek((id)-> System.out.println(id)).count());
                     //System.out.println("experimentTree nodes by DFS:"+experimentTree.getNodeIdsByDFS().stream().map((id)->experimentTree.getById(id)).peek((id)-> System.out.println(id)).count());
-                    //System.out.println("JPlace best placements:"+EPAJplace.getBestPlacements());
+                    //System.out.println("JPlace best placements:"+EPAJplace.getNodeIds());
 //                    System.out.println("POSTERIOR");
 //                    testPosteriorDFS(experimentTree.getRoot());
 //                    System.out.println("ANTERIOR");
@@ -170,7 +167,7 @@ public class DistanceGenerator {
                     //map EPA jplace to experimentTree
                     HashMap<Integer, Integer> mapEPANodes = EPAJplace.getTree().mapNodes(experimentTree);
                     //retrieve best placements
-                    HashMap<String, Integer> EPABestPlacements = EPAJplace.getBestPlacements();
+                    HashMap<String, ArrayList<Integer>> EPABestPlacements = EPAJplace.getNodeIds();
 
 
                     //System.out.println("mapEPANodes:"+mapEPANodes);
@@ -180,7 +177,7 @@ public class DistanceGenerator {
                         String name = iterator.next();
                         //get best placement as the nodeId of the phylotree generated 
                         //during jplace parsing
-                        Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name);
+                        Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name).get(0);
                         //get its equivalent nodeId in the phylotree loaded from the 
                         //expected_placements.bin
                         Integer experimentTreeNodeId = mapEPANodes.get(jplacePhyloTreeNodeId);
@@ -235,7 +232,7 @@ public class DistanceGenerator {
                     //map EPA jplace to experimentTree
                     HashMap<Integer, Integer> mapEPANodes = EPAJplace.getTree().mapNodes(experimentTree);
                     //retrieve best placements
-                    HashMap<String, Integer> EPABestPlacements = EPAJplace.getBestPlacements();
+                    HashMap<String, ArrayList<Integer>> EPABestPlacements = EPAJplace.getNodeIds();
 
 
                     //System.out.println("mapEPANodes:"+mapEPANodes);
@@ -246,7 +243,7 @@ public class DistanceGenerator {
                         String name = iterator.next();
                         //get best placement as the nodeId of the phylotree generated 
                         //during jplace parsing
-                        Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name);
+                        Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name).get(0);
                         //get its equivalent nodeId in the phylotree loaded from the 
                         //expected_placements.bin
                         Integer experimentTreeNodeId = mapEPANodes.get(jplacePhyloTreeNodeId);
@@ -327,7 +324,7 @@ public class DistanceGenerator {
                     //System.out.println("mapEPANodes:"+mapEPANodes);
 
                     //retrieve best placements
-                    HashMap<String, Integer> EPABestPlacements = EPAJplace.getBestPlacements();
+                    HashMap<String, ArrayList<Integer>> EPABestPlacements = EPAJplace.getNodeIds();
                     //System.out.println("EPABestPlacements:"+EPABestPlacements);
 
                     //for each placeme,nt itm (json 'p') in the jplace
@@ -335,7 +332,7 @@ public class DistanceGenerator {
                         String name = iterator.next();
                         //get best placement as the nodeId of the phylotree generated 
                         //during jplace parsing
-                        Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name);
+                        Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name).get(0);
                         //get its equivalent nodeId in the phylotree loaded from the 
                         //expected_placements.bin
                         Integer experimentTreeNodeId = mapEPANodes.get(jplacePhyloTreeNodeId);
