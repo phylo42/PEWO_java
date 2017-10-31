@@ -25,13 +25,11 @@ import java.util.EnumSet;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
-import outputs.ARProcessLauncher;
+import inputs.ARProcessLauncher;
 import tree.ExtendedTree;
 import tree.NewickReader;
 import tree.NewickWriter;
@@ -47,7 +45,7 @@ import tree.PhyloTreeModel;
  */
 
 /**
- * takes Ax tree and alignment as input, then build all the directories necessary.
+ * takes Ax ancTree and alignment as input, then build all the directories necessary.
  * Produces also the AR commands as qsub command list
  * to the method comparisons
  * @author ben
@@ -183,7 +181,7 @@ public class PrunedTreeGenerator {
             //TEST ZONE
             
             //very small default dataset for debugging
-//            File treeFile=new File(ptg.workDir.getParent()+File.separator+"6_leaves_test_set.tree");
+//            File treeFile=new File(ptg.workDir.getParent()+File.separator+"6_leaves_test_set.ancTree");
 //            File alignFile=new File(ptg.workDir.getParent()+File.separator+"6_leaves_test_set.aln");
 //            ptg.percentPruning=1.0;
             //pplacer rRNA dataset
@@ -192,19 +190,19 @@ public class PrunedTreeGenerator {
 //            File workDir=new File("/media/ben/STOCK/DATA/viromeplacer/accu_tests");
 //            File treeFile=new File(workDir+File.separator+"RAxML_result.bv_refs_aln");
 //            File alignFile=new File(workDir+File.separator+"bv_refs_aln_stripped_99.5.fasta");
-//            //set directory associated to this tree
+//            //set directory associated to this ancTree
 //            ptg.workDir=new File(workDir.getAbsolutePath()+File.separator+"pplacer_16s");
 
 
 //            
-//            //read tree
+//            //read ancTree
 //            BufferedReader br=new BufferedReader(new FileReader(treeFile));
 //            String line=null;
 //            String treeString=null;
 //            while((line=br.readLine())!=null) {treeString=line;}
-//            PhyloTree tree = NewickReader.parseNewickTree2(treeString, true);
-//            tree.initIndexes();
-//            System.out.println("Original tree, # nodes: "+tree.getNodeCount());
+//            PhyloTree ancTree = NewickReader.parseNewickTree2(treeString, true);
+//            ancTree.initIndexes();
+//            System.out.println("Original ancTree, # nodes: "+ancTree.getNodeCount());
 //            //tree.displayTree();
 
                     
@@ -220,7 +218,7 @@ public class PrunedTreeGenerator {
             Alignment align=new Alignment(fastas);
             System.out.println(align.describeAlignment(false));
             fp.closePointer();
-            //load tree
+            //load ancTree
             BufferedReader br=new BufferedReader(new FileReader(ptg.treeFile));
             String line=null;
             String treeString=null;
@@ -321,7 +319,7 @@ public class PrunedTreeGenerator {
         //shuffle their order
         shuffleArray(nodeIds);
         //not shuffled
-        //nodeIds=tree.getNodeIdsByDFS().toArray(nodeIds);
+        //nodeIds=ancTree.getNodeIdsByDFS().toArray(nodeIds);
         //define first x% as pruning experiments
         if(pruningCount>nodeIds.length) {
             pruningCount=nodeIds.length;
@@ -337,7 +335,7 @@ public class PrunedTreeGenerator {
         File skippedLog=new File(workDir+File.separator+"SKIPPED_Nx");
         BufferedWriter skippedLogBw=new BufferedWriter(new FileWriter(skippedLog,false));
         
-        //write in a binary file the pruned tree and the expected placement,
+        //write in a binary file the pruned ancTree and the expected placement,
         //that is the branch b_new (and b_new_p if rerooting), see algo below.
         //expected placement is saved through an integer array of 1 or 2 elements
         //integer is the n of the node son of b_new
@@ -394,10 +392,10 @@ public class PrunedTreeGenerator {
         for (int i = 0; i < prunedNodeIds.length; i++) {
             Integer nx_nodeId = prunedNodeIds[i];
             //System.out.println("--------------------------------------");
-            //System.out.println("copying tree and alignment before pruning...");
+            //System.out.println("copying ancTree and alignment before pruning...");
             PhyloNode rootCopy=tree.getRoot().copy();
             PhyloTree treeCopy=new PhyloTree(new PhyloTreeModel(rootCopy),tree.isRooted(), false);
-            //System.out.println("indexing tree ...");
+            //System.out.println("indexing ancTree ...");
             treeCopy.initIndexes();
             //some checkup about the original  copy
 //            System.out.println("Tree; #nodes="+treeCopy.getNodeCount());
@@ -438,7 +436,7 @@ public class PrunedTreeGenerator {
                 //enumerate nodes in subtree
                 PhyloNode nextNx =null;
                 Enumeration<PhyloNode> DFSenum = Nx.depthFirstEnumeration();
-                //careful, tree topology change are reflected in the enumeration
+                //careful, ancTree topology change are reflected in the enumeration
                 //so we need to remove node AFTER this this transversal postorder
                 while (DFSenum.hasMoreElements()) {
                     nextNx=DFSenum.nextElement();
@@ -471,7 +469,7 @@ public class PrunedTreeGenerator {
             
             
             //REGISTER THIS PRUNING
-            //if reach here, we made Ax tree with more than 3 leaves, this pruning
+            //if reach here, we made Ax ancTree with more than 3 leaves, this pruning
             // will be effectively operated
             actuallyPrunedNodeIdsIndexes.add(i);
             //so let's register this pruning index in the expected_placement.bin file
@@ -570,7 +568,7 @@ public class PrunedTreeGenerator {
                 
 
                 
-            //in all other case, the tree is disconnected and reconnected
+            //in all other case, the ancTree is disconnected and reconnected
             //      _                   _
             //     \ /                 \ /
             //      Np''                Np''
@@ -599,13 +597,13 @@ public class PrunedTreeGenerator {
             
             //write alignment to file and list
             alignCopy.writeAlignmentAsFasta(Ax);
-            //save the pruned tree
+            //save the pruned ancTree
             System.out.println("Indexing pruned tree");
             treeCopy.initIndexes(); //necessary to remove former nodes from the maps shortcuts
             System.out.println("pruned tree(treeCopy), #nodes :"+treeCopy.getNodeCount());
             System.out.println("pruned tree(treeCopy), #leaves:"+treeCopy.getLeavesCount());
             //it is necessary to keep the trees objects, if saved as
-            //newick, then reloaded, the tree node ids will be different
+            //newick, then reloaded, the ancTree node ids will be different
             //and the expectedPlacement map will not match
             prunedTrees.add(treeCopy);
             System.out.println("Writing pruned tree newick");
@@ -635,7 +633,7 @@ public class PrunedTreeGenerator {
 //            System.out.println("b_new:"+b_new);
             //using the nodeIds table, Dtx column order will match the
             //shuffled nodeIds, like this the first xx% correspond to the
-            //pruned nodes. we could have used tree.getNodeIdsByDFS() too.
+            //pruned nodes. we could have used ancTree.getNodeIdsByDFS() too.
             for (int n=0;n<nodeIds.length;n++) {
                 PhyloNode currentNode=treeCopy.getById(nodeIds[n]);
                 //System.out.println("+++++++++++currentNode:"+currentNode);
@@ -659,7 +657,7 @@ public class PrunedTreeGenerator {
                     int correctedNodeDistance=shortestPath.nodeDistance;
                     
                     //1st correction to node distance:
-                    //added_root comes from forced rooting of the input tree
+                    //added_root comes from forced rooting of the input ancTree
                     //and is injected betwen Np' and Np''
                     //if this triplet is on the path, a correction of -1
                     //has to be brought to nodeDistance (like if this added_root
@@ -800,13 +798,13 @@ public class PrunedTreeGenerator {
             
             
             ////////////////////////////////////////////////////////////////////
-            //fifth, launch the generation of extended tree and AR commands
+            //fifth, launch the generation of extended ancTree and AR commands
             //for this particular pruning
             
             
-            //load data necessary to do the extended tree            
+            //load data necessary to do the extended ancTree            
             String experimentAlignmentLabel=Ax.getName().split("\\.align$")[0];
-            //String experimentTreeLabel=t.getName().split("\\.tree")[0];
+            //String experimentTreeLabel=t.getName().split("\\.ancTree")[0];
             
             System.out.println("PREPARING EXTENDED TREE/ALL DB_BUILDs FOR EXPERIMENT: "+experimentAlignmentLabel);
 
@@ -820,14 +818,14 @@ public class PrunedTreeGenerator {
                 System.exit(1);
             }
             
-            //directory of extended tree
+            //directory of extended ancTree
             File extendedTreeDir=new File(workDir.getAbsolutePath()+File.separator+"Dx"+File.separator+experimentAlignmentLabel+File.separator+"extended_trees");
             extendedTreeDir.mkdir();
             
             //build the extended trees first and save them in the extended_trees directory
             //these will be used in the AR below
             System.out.println("Create extended tree and save newick/fasta/phylip.");
-            //do a copy or else, the extended tree will be saved in expected_placements.bin
+            //do a copy or else, the extended ancTree will be saved in expected_placements.bin
             PhyloNode rootCopy2=treeCopy.getRoot().copy();
             PhyloTree treeCopy2=new PhyloTree(new PhyloTreeModel(rootCopy2),treeCopy.isRooted(), false);
             treeCopy2.initIndexes();
@@ -846,18 +844,56 @@ public class PrunedTreeGenerator {
             File fileRelaxedTreewithBL=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_tree_withBL.tree");
 //            File fileRelaxedTreeBinary=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_tree.bin");
             
-            //prepare the directory for AR based on extended tree 
+            //prepare the directory for AR based on extended ancTree 
                     
             //create correpsonding directory        
             File ARDir=new File(workDir.getAbsolutePath()+File.separator+"Dx"+File.separator+experimentAlignmentLabel+File.separator+"AR");
             ARDir.mkdir();
             System.out.println("Build AR commands in: "+ARDir.getAbsolutePath());
-            ARProcessLauncher arpl=new ARProcessLauncher(ARExecutablePath, false,ARProcessLauncher.AR_PAML);
+            ARProcessLauncher arpl=null;
+            StringBuilder ARCommand = new StringBuilder("");
+            if (ARExecutablePath.getName().contains("phyml")) {
+                arpl=new ARProcessLauncher(ARExecutablePath, false,ARProcessLauncher.AR_PHYML);
+                ARCommand.append( arpl.prepareAR(ARDir, fileRelaxedAlignmentPhylip, fileRelaxedTreewithBLNoInternalNodeLabels) );
+                //add move of the 4 files to the AR directory, as phyml write 
+                //outputs near its input alignment file
+                //phyml is written all data files near the input aignment file...
+                //we move them to the AR directory
+                //files are:
+                // 1. alignName_phyml_ancestral_seq.txt         (used)
+                // 2. alignName_phyml_stats.txt                 (unused)
+                // 3. alignName_phyml_ancestral_tree.txt        (used)
+                // 4. alignName_phyml_tree.txt                  (unused)
+                File stats=new File(fileRelaxedAlignmentPhylip.getAbsolutePath()+"_phyml_stats.txt");
+                File ancTree=new File(fileRelaxedAlignmentPhylip.getAbsolutePath()+"_phyml_ancestral_tree.txt");
+                File seq=new File(fileRelaxedAlignmentPhylip.getAbsolutePath()+"_phyml_ancestral_seq.txt");
+                File oriTree=new File(fileRelaxedAlignmentPhylip.getAbsolutePath()+"_phyml_tree.txt");
+                //rename to these files
+                File statsNew=new File(fileRelaxedAlignmentPhylip.getParent().replace("/extended_trees", "/AR")+File.separator+fileRelaxedAlignmentPhylip.getName()+"_phyml_stats.txt");
+                File ancTreeNew=new File(fileRelaxedAlignmentPhylip.getParent().replace("/extended_trees", "/AR")+File.separator+fileRelaxedAlignmentPhylip.getName()+"_phyml_ancestral_tree.txt");
+                File seqNew=new File(fileRelaxedAlignmentPhylip.getParent().replace("/extended_trees", "/AR")+File.separator+fileRelaxedAlignmentPhylip.getName()+"_phyml_ancestral_seq.txt");
+                File oriTreeNew=new File(fileRelaxedAlignmentPhylip.getParent().replace("/extended_trees", "/AR")+File.separator+fileRelaxedAlignmentPhylip.getName()+"_phyml_tree.txt");
+                //add the mv commands
+                ARCommand.append(" ; mv "+stats.getAbsolutePath()+" "+statsNew.getAbsolutePath());
+                ARCommand.append(" ; mv "+ancTree.getAbsolutePath()+" "+ancTreeNew.getAbsolutePath());
+                ARCommand.append(" ; mv "+seq.getAbsolutePath()+" "+seqNew.getAbsolutePath());
+                ARCommand.append(" ; mv "+oriTree.getAbsolutePath()+" "+oriTreeNew.getAbsolutePath());
+
+ 
+                
+                
+            } else {
+                arpl=new ARProcessLauncher(ARExecutablePath, false,ARProcessLauncher.AR_PAML);
+                ARCommand.append( arpl.prepareAR(ARDir, fileRelaxedAlignmentPhylip, fileRelaxedTreewithBLNoInternalNodeLabels) );
+            }
             
             //prepare corresponding AR commands (with PAML)
-            String ARCommand = arpl.prepareAR(ARDir, fileRelaxedAlignmentPhylip, fileRelaxedTreewithBLNoInternalNodeLabels);
             bw.append("echo \""+ARCommand+"\" | qsub -N AR_"+DxExpPath.getName()+" -wd "+ARDir.getAbsolutePath());
             bw.newLine();
+            
+            
+            
+            
 
             //make subdirectory corresponding to  minK/alpha combinations
             //this will be the directory in which viromeplacer will work
@@ -999,7 +1035,7 @@ public class PrunedTreeGenerator {
         
 //        for (int i = 0; i < prunedTrees.size(); i++) {
 //            PhyloTree get = prunedTrees.get(i);
-//            System.out.println(i+"th tree size test:"+get.getNodeCount());
+//            System.out.println(i+"th ancTree size test:"+get.getNodeCount());
 //        }
         
         //after all placements, save expected placements in binary file
@@ -1130,7 +1166,7 @@ public class PrunedTreeGenerator {
         //File idsMappings=new File(extendedTreePath.getAbsolutePath()+File.separator+"extended_tree_node_mapping_from_prunedTreeGenerator.tsv");
         
         try {
-            //note, we read again the tree to build Ax new PhyloTree object
+            //note, we read again the ancTree to build Ax new PhyloTree object
             //this is necessary as its TreeModel is directly modified
             //at instanciation of ExtendedTree
             extendedTree=new ExtendedTree(tree,minBranchLength,branchPerEdge);                    
@@ -1156,12 +1192,12 @@ public class PrunedTreeGenerator {
             align.writeAlignmentAsPhylip(fileRelaxedAlignmentPhylip);
             align=null;
             //write extended trees
-            //System.out.println("Write extended newick tree: "+fileRelaxedTreewithBL.getAbsolutePath());
+            //System.out.println("Write extended newick ancTree: "+fileRelaxedTreewithBL.getAbsolutePath());
             NewickWriter nw=new NewickWriter(fileRelaxedTreewithBL);
             nw.writeNewickTree(extendedTree, true, true, false);
             nw.close();
             //write version without internal nodes labels
-            //System.out.println("Write extended newick tree with branch length: "+fileRelaxedTreewithBLNoInternalNodeLabels.getAbsolutePath());
+            //System.out.println("Write extended newick ancTree with branch length: "+fileRelaxedTreewithBLNoInternalNodeLabels.getAbsolutePath());
             nw=new NewickWriter(fileRelaxedTreewithBLNoInternalNodeLabels);
             nw.writeNewickTree(extendedTree, true, false, false);
             nw.close();
@@ -1178,7 +1214,7 @@ public class PrunedTreeGenerator {
 //            for (Iterator<Integer> iterator = fakeNodeMapping.keySet().iterator(); iterator.hasNext();) {
 //                Integer next = iterator.next();
 //                fw.append("\n");
-//                fw.append(fakeNodeMapping.get(next)+"\t"+tree.getById(fakeNodeMapping.get(next)).getLabel()+"\t");
+//                fw.append(fakeNodeMapping.get(next)+"\t"+ancTree.getById(fakeNodeMapping.get(next)).getLabel()+"\t");
 //                fw.append(next+"\t"+extendedTree.getById(next).getLabel());
 //            }
 //            fw.close();  
