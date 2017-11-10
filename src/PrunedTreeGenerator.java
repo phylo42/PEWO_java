@@ -30,6 +30,7 @@ import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import inputs.ARProcessLauncher;
+import main_v2.ArgumentsParser_v2;
 import tree.ExtendedTree;
 import tree.NewickReader;
 import tree.NewickWriter;
@@ -853,7 +854,7 @@ public class PrunedTreeGenerator {
             ARProcessLauncher arpl=null;
             StringBuilder ARCommand = new StringBuilder("");
             if (ARExecutablePath.getName().contains("phyml")) {
-                arpl=new ARProcessLauncher(ARExecutablePath, false,ARProcessLauncher.AR_PHYML);
+                arpl=new ARProcessLauncher(ARExecutablePath, false,ArgumentsParser_v2.TYPE_DNA);
                 ARCommand.append( arpl.prepareAR(ARDir, fileRelaxedAlignmentPhylip, fileRelaxedTreewithBLNoInternalNodeLabels) );
                 //add move of the 4 files to the AR directory, as phyml write 
                 //outputs near its input alignment file
@@ -878,12 +879,9 @@ public class PrunedTreeGenerator {
                 ARCommand.append(" ; mv "+ancTree.getAbsolutePath()+" "+ancTreeNew.getAbsolutePath());
                 ARCommand.append(" ; mv "+seq.getAbsolutePath()+" "+seqNew.getAbsolutePath());
                 ARCommand.append(" ; mv "+oriTree.getAbsolutePath()+" "+oriTreeNew.getAbsolutePath());
-
  
-                
-                
             } else {
-                arpl=new ARProcessLauncher(ARExecutablePath, false,ARProcessLauncher.AR_PAML);
+                arpl=new ARProcessLauncher(ARExecutablePath, false,ArgumentsParser_v2.TYPE_DNA);
                 ARCommand.append( arpl.prepareAR(ARDir, fileRelaxedAlignmentPhylip, fileRelaxedTreewithBLNoInternalNodeLabels) );
             }
             

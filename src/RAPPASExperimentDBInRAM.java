@@ -10,10 +10,12 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Currency;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -120,6 +122,7 @@ public class RAPPASExperimentDBInRAM {
             
             //to ensure consistent direcory names (alpha-> _ax.xx_)
             NumberFormat nf = NumberFormat.getNumberInstance();
+            nf.setCurrency(Currency.getInstance(Locale.UK));
             nf.setMinimumFractionDigits(2);
             nf.setMaximumFractionDigits(2);
             
@@ -199,14 +202,14 @@ public class RAPPASExperimentDBInRAM {
                         sb.append("-t "+Tx.getAbsolutePath()+" ");
                         sb.append("-r "+Ax.getAbsolutePath()+" ");
                         sb.append("-w "+DxAxKAlphaDir+" ");
-                        sb.append("--arbinary baseml"); //not used as --ardir is settled, but allow the program to know it's baseml
+                        sb.append("--arbinary baseml "); //not used as --ardir is settled, but allow the program to know it's baseml
                         sb.append("--ardir "+DxAxKAlphaDir+File.separator+"AR ");
                         //sb.append("--extree "+DxAxKAlphaDir+File.separator+"extended_trees "); //TODO: currently raise bugs, ids mappings problems...
                         sb.append("-v 1 ");
                         sb.append("--skipdbfull ");
                         sb.append("--force-root "); //not necessary, as trees from Tx directory should already be rooted and with added_root node
                         sb.append("--dbinram ");
-                        sb.append("--nsbound -100000.0 "); //skip calibration for this test.
+                        sb.append("--nsbound -100000000.0 "); //skip calibration for this test.
                         sb.append("--no-reduction "); //do not modify input alignment
                         
                         //for all query reads
