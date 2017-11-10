@@ -905,17 +905,45 @@ public class PrunedTreeGenerator {
                     //make subdirectory corresponding to this minK/alpha combination
                     File combDir=new File(DxExpPath.getAbsolutePath()+File.separator+"k"+current_k+"_a"+nf.format(current_alpha));
                     boolean dirOK=combDir.mkdir();
+                    
                     //do Ax subdir AR/ in each minK/alpha directory
-                    //make symbolic link to rst file which is in experiment directory (same for all minK/alpha combinations)
                     File combDirAR=new File(combDir.getAbsolutePath()+File.separator+"AR");
                     combDirAR.mkdir();
                     File combDirExtendedTree=new File(combDir.getAbsolutePath()+File.separator+"extended_trees");
                     combDirExtendedTree.mkdir();
+                    
+                    //make symbolic link to rst file which is in experiment directory (same AR for all minK/alpha combinations)
                     File originalRST=new File(ARDir.getAbsolutePath()+File.separator+"rst");
                     originalRST.createNewFile();
                     File linkToRST=new File(combDirAR.getAbsolutePath()+File.separator+"rst");
                     if (!linkToRST.exists())
                         Files.createSymbolicLink(linkToRST.toPath(), originalRST.toPath());
+                    
+                    //make symbolic link to phyML AR outputs files which are in experiment directory (same AR for all minK/alpha combinations)
+                    File originalAncestralSeq=new File(ARDir.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_ancestral_seq.txt");
+                    originalAncestralSeq.createNewFile();
+                    File linkToAncestralSeq=new File(combDirAR.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_ancestral_seq.txt");
+                    if (!linkToAncestralSeq.exists())
+                        Files.createSymbolicLink(linkToAncestralSeq.toPath(), originalAncestralSeq.toPath());
+                    
+                    File originalAncestralTree=new File(ARDir.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_ancestral_tree.txt");
+                    originalAncestralTree.createNewFile();
+                    File linkToAncestralTree=new File(combDirAR.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_ancestral_tree.txt");
+                    if (!linkToAncestralTree.exists())
+                        Files.createSymbolicLink(linkToAncestralTree.toPath(), originalAncestralTree.toPath());
+                    
+                    File originalPhymlStats=new File(ARDir.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_stats.txt");
+                    originalPhymlStats.createNewFile();
+                    File linkToOriginalPhymlStats=new File(combDirAR.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_stats.txt");
+                    if (!linkToOriginalPhymlStats.exists())
+                        Files.createSymbolicLink(linkToOriginalPhymlStats.toPath(), originalPhymlStats.toPath());
+                    
+                    File originalPhymlTree=new File(ARDir.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_tree.txt");
+                    originalPhymlTree.createNewFile();
+                    File linkToOriginalPhymlTree=new File(combDirAR.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_tree.txt");
+                    if (!linkToOriginalPhymlTree.exists())
+                        Files.createSymbolicLink(linkToOriginalPhymlTree.toPath(), originalPhymlTree.toPath());
+                    
                     //do Ax subdir extended_trees/ in each minK/alpha directory
                     //make symbolic link to correpsonding trees/alignments
                     //which are in experiment directory (same trees/aligns for all minK/alpha combinations)

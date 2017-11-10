@@ -143,11 +143,11 @@ public class DistanceGenerator {
                     JplacerLoader EPAJplace=new JplacerLoader(currentJPlaceFile.toFile());
                     System.out.println("EPAJplace tree: "+EPAJplace.getTree());
                     System.out.println("experimentTree: "+experimentTree);
-                    //System.out.println("EPAJplace tree nodes ids by DFS:"+EPAJplace.getTree().getNodeIdsByDFS());
+                    //System.out.println("RAPJplace tree nodes ids by DFS:"+RAPJplace.getTree().getNodeIdsByDFS());
                     //System.out.println("experimentTree nodes ids by DFS:"+experimentTree.getNodeIdsByDFS());
-                    //System.out.println("EPAJplace tree nodes by DFS:"+EPAJplace.getTree().getNodeIdsByDFS().stream().map((id)->EPAJplace.getTree().getById(id)).peek((id)-> System.out.println(id)).count());
+                    //System.out.println("RAPJplace tree nodes by DFS:"+RAPJplace.getTree().getNodeIdsByDFS().stream().map((id)->RAPJplace.getTree().getById(id)).peek((id)-> System.out.println(id)).count());
                     //System.out.println("experimentTree nodes by DFS:"+experimentTree.getNodeIdsByDFS().stream().map((id)->experimentTree.getById(id)).peek((id)-> System.out.println(id)).count());
-                    //System.out.println("JPlace best placements:"+EPAJplace.getNodeIds());
+                    //System.out.println("JPlace best placements:"+RAPJplace.getNodeIds());
 //                    System.out.println("POSTERIOR");
 //                    testPosteriorDFS(experimentTree.getRoot());
 //                    System.out.println("ANTERIOR");
@@ -170,8 +170,8 @@ public class DistanceGenerator {
                     HashMap<String, ArrayList<Integer>> EPABestPlacements = EPAJplace.getNodeIds();
 
 
-                    //System.out.println("mapEPANodes:"+mapEPANodes);
-                    //System.out.println("EPABestPlacements:"+EPABestPlacements);
+                    //System.out.println("mapPPLNodes:"+mapPPLNodes);
+                    //System.out.println("RAPBestPlacements:"+RAPBestPlacements);
 
                     for (Iterator<String> iterator = EPABestPlacements.keySet().iterator(); iterator.hasNext();) {
                         String name = iterator.next();
@@ -220,23 +220,23 @@ public class DistanceGenerator {
                     //System.out.println("experimentTree nodeIds:"+experimentTree.getNodeIdsByDFS());
                     //System.out.println("experimentTree best placement(s):"+experimentPlacements);
 
-                    JplacerLoader EPAJplace=new JplacerLoader(currentJPlaceFile.toFile());
-                    System.out.println("EPAJplace tree: "+EPAJplace.getTree());
+                    JplacerLoader PPLJplace=new JplacerLoader(currentJPlaceFile.toFile());
+                    System.out.println("PPLJplace tree: "+PPLJplace.getTree());
                     System.out.println("experimentTree: "+experimentTree);
-                    if (EPAJplace.getTree().getNodeCount()!=experimentTree.getNodeCount()) {
+                    if (PPLJplace.getTree().getNodeCount()!=experimentTree.getNodeCount()) {
                         System.out.println("Something is wrong between the JPlace and expected_placements.bin trees.");
                         System.out.println("They do not include the same trees for the same Nx experiment.");
                         System.exit(1);
                     }
                     
                     //map EPA jplace to experimentTree
-                    HashMap<Integer, Integer> mapEPANodes = EPAJplace.getTree().mapNodes(experimentTree);
+                    HashMap<Integer, Integer> mapPPLNodes = PPLJplace.getTree().mapNodes(experimentTree);
                     //retrieve best placements
-                    HashMap<String, ArrayList<Integer>> EPABestPlacements = EPAJplace.getNodeIds();
+                    HashMap<String, ArrayList<Integer>> EPABestPlacements = PPLJplace.getNodeIds();
 
 
-                    //System.out.println("mapEPANodes:"+mapEPANodes);
-                    //System.out.println("EPABestPlacements:"+EPABestPlacements);
+                    //System.out.println("mapPPLNodes:"+mapPPLNodes);
+                    //System.out.println("RAPBestPlacements:"+RAPBestPlacements);
 
                     for (Iterator<String> iterator = EPABestPlacements.keySet().iterator(); iterator.hasNext();) {
                         //query itself
@@ -246,7 +246,7 @@ public class DistanceGenerator {
                         Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name).get(0);
                         //get its equivalent nodeId in the phylotree loaded from the 
                         //expected_placements.bin
-                        Integer experimentTreeNodeId = mapEPANodes.get(jplacePhyloTreeNodeId);
+                        Integer experimentTreeNodeId = mapPPLNodes.get(jplacePhyloTreeNodeId);
                         //calculate the distance between these 2 nodeIds
                         //i.e. use the DTx and D'Tx matrices
 
@@ -310,32 +310,32 @@ public class DistanceGenerator {
                     ArrayList<Integer> experimentPlacements=expectedPlacements.get(expectedPlacementIndex);
                     //System.out.println("experimentTree nodeIds:"+experimentTree.getNodeIdsByDFS());
                     //System.out.println("experimentTree best placement(s):"+experimentPlacements);
-                    JplacerLoader EPAJplace=new JplacerLoader(currentJPlaceFile.toFile());
-                    System.out.println("EPAJplace tree: "+EPAJplace.getTree());
+                    JplacerLoader RAPJplace=new JplacerLoader(currentJPlaceFile.toFile());
+                    System.out.println("RAPJplace tree: "+RAPJplace.getTree());
                     System.out.println("experimentTree: "+experimentTree);
-                    if (EPAJplace.getTree().getNodeCount()!=experimentTree.getNodeCount()) {
+                    if (RAPJplace.getTree().getNodeCount()!=experimentTree.getNodeCount()) {
                         System.out.println("Something is wrong between the JPlace and expected_placements.bin trees.");
                         System.out.println("They do not include the same trees for the same Nx experiment.");
                         System.exit(1);
                     }
 
                     //map jplace to experimentTree
-                    HashMap<Integer, Integer> mapEPANodes = EPAJplace.getTree().mapNodes(experimentTree);
-                    //System.out.println("mapEPANodes:"+mapEPANodes);
+                    HashMap<Integer, Integer> mapRAPNodes = RAPJplace.getTree().mapNodes(experimentTree);
+                    //System.out.println("mapPPLNodes:"+mapPPLNodes);
 
                     //retrieve best placements
-                    HashMap<String, ArrayList<Integer>> EPABestPlacements = EPAJplace.getNodeIds();
-                    //System.out.println("EPABestPlacements:"+EPABestPlacements);
+                    HashMap<String, ArrayList<Integer>> RAPBestPlacements = RAPJplace.getNodeIds();
+                    //System.out.println("RAPBestPlacements:"+RAPBestPlacements);
 
                     //for each placeme,nt itm (json 'p') in the jplace
-                    for (Iterator<String> iterator = EPABestPlacements.keySet().iterator(); iterator.hasNext();) {
+                    for (Iterator<String> iterator = RAPBestPlacements.keySet().iterator(); iterator.hasNext();) {
                         String name = iterator.next();
                         //get best placement as the nodeId of the phylotree generated 
                         //during jplace parsing
-                        Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name).get(0);
+                        Integer jplacePhyloTreeNodeId = RAPBestPlacements.get(name).get(0);
                         //get its equivalent nodeId in the phylotree loaded from the 
                         //expected_placements.bin
-                        Integer experimentTreeNodeId = mapEPANodes.get(jplacePhyloTreeNodeId);
+                        Integer experimentTreeNodeId = mapRAPNodes.get(jplacePhyloTreeNodeId);
                         //calculate the distance between these 2 nodeIds
                         //i.e. use the DTx and D'Tx matrices
 
