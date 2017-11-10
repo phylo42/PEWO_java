@@ -34,12 +34,13 @@ public class RAPPASExperimentDBInRAM {
     //workDir
     String HOME = System.getenv("HOME");
     File workDir=new File(HOME+"/Dropbox/viromeplacer/test_datasets/accuracy_tests/6_leaves_test_set");
+    File arBinary=new File("baseml");
 
     //list of new files
     public List<File> prunedAlignmentsFiles=new ArrayList<>(); //list of pruned alignments
     public List<File> prunedTreesFiles=new ArrayList<>(); //list of pruned Trees
    
-    //where is EPA 
+    //where is RAPPAS 
     File RAPPAJar=new File(HOME+"/home/ben/Dropbox/viromeplacer/test_datasets/software/rappas/ViromePlacer.jar");
 
     //file permissions given to the qsub scripts
@@ -59,18 +60,20 @@ public class RAPPASExperimentDBInRAM {
     public static void main(String[] args) {
         
         try {
-            System.out.println("ARGS: workDir RAPPASJar");
+            System.out.println("ARGS: workDir RAPPASJar arBinary");
             
             //launch
-            RAPPASExperiment exp=new RAPPASExperiment();
+            RAPPASExperimentDBInRAM exp=new RAPPASExperimentDBInRAM();
             
             //LOAD ALL EXPERIMENTS FOUND IN WORK DIR
             ///////////////////////////////////////////////////
             if(args.length>0) {
                 exp.workDir=new File(args[0]);
                 exp.RAPPAJar=new File(args[1]);
+                exp.arBinary=new File(args[2]);
                 System.out.println("workDir: "+exp.workDir);
                 System.out.println("RAPPASJar: "+exp.RAPPAJar);
+                System.out.println("arBinary: "+exp.arBinary);
             }  
             
 
@@ -202,12 +205,12 @@ public class RAPPASExperimentDBInRAM {
                         sb.append("-t "+Tx.getAbsolutePath()+" ");
                         sb.append("-r "+Ax.getAbsolutePath()+" ");
                         sb.append("-w "+DxAxKAlphaDir+" ");
-                        sb.append("--arbinary baseml "); //not used as --ardir is settled, but allow the program to know it's baseml
+                        sb.append("--arbinary "+exp.arBinary.getAbsolutePath()+" "); //not used as --ardir is settled, but allow the program to know it's baseml
                         sb.append("--ardir "+DxAxKAlphaDir+File.separator+"AR ");
                         //sb.append("--extree "+DxAxKAlphaDir+File.separator+"extended_trees "); //TODO: currently raise bugs, ids mappings problems...
                         sb.append("-v 1 ");
                         sb.append("--skipdbfull ");
-                        sb.append("--force-root "); //not necessary, as trees from Tx directory should already be rooted and with added_root node
+                        //sb.append("--force-root "); //not necessary, as trees from Tx directory should already be rooted and with added_root node
                         sb.append("--dbinram ");
                         sb.append("--nsbound -100000000.0 "); //skip calibration for this test.
                         sb.append("--no-reduction "); //do not modify input alignment
