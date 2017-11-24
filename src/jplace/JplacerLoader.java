@@ -88,10 +88,20 @@ public class JplacerLoader {
                     int nodeId=tree.getJplaceMapping(edgeJPlaceId.intValue());
                     nodeIdList.add(nodeId);                    
                     Object o=stats.get(weightRatioIndex);
-                    if (o.getClass().getName().contains("Double")) {
-                        weightRatiosList.add((Double)stats.get(weightRatioIndex));
-                    } else if (o.getClass().getName().contains("Long")) {
-                        weightRatiosList.add(new Double(((Long)stats.get(weightRatioIndex)).doubleValue()));
+                    try {
+                        if (o.getClass().getName().contains("Double")) {
+                            weightRatiosList.add((Double)stats.get(weightRatioIndex));
+                        } else if (o.getClass().getName().contains("Long")) {
+                            weightRatiosList.add(new Double(((Long)stats.get(weightRatioIndex)).doubleValue()));
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        if (o==null) {
+                            System.out.println("Weight Ratio parsed as 'null'.");
+                        }
+                        System.out.println("Line: "+stats.toString());
+                        weightRatiosList.add(0.0);
+                        
                     }
                     
                    
