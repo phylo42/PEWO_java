@@ -101,7 +101,7 @@ public class DistanceGenerator {
             Path csvResult=Paths.get(dg.workDir.getAbsolutePath(),"results.csv");
             BufferedWriter bw= Files.newBufferedWriter(csvResult);
             //header
-            bw.append("software;Ax;k;alpha;dbSize;Rx;read;readSize;node_dist\n");
+            bw.append("software;Ax;k;alpha;dbSize;Rx;read;readSize;node_dist;readStart;readEnd\n");
             
             //prepare a second CSV file confronting the methods
             Path csvResult2=Paths.get(dg.workDir.getAbsolutePath(),"results2.csv");
@@ -141,8 +141,8 @@ public class DistanceGenerator {
 
                     
                     JplacerLoader EPAJplace=new JplacerLoader(currentJPlaceFile.toFile());
-                    System.out.println("EPAJplace tree: "+EPAJplace.getTree());
-                    System.out.println("experimentTree: "+experimentTree);
+                    //System.out.println("EPAJplace tree: "+EPAJplace.getTree());
+                    //System.out.println("experimentTree: "+experimentTree);
                     //System.out.println("RAPJplace tree nodes ids by DFS:"+RAPJplace.getTree().getNodeIdsByDFS());
                     //System.out.println("experimentTree nodes ids by DFS:"+experimentTree.getNodeIdsByDFS());
                     //System.out.println("RAPJplace tree nodes by DFS:"+RAPJplace.getTree().getNodeIdsByDFS().stream().map((id)->RAPJplace.getTree().getById(id)).peek((id)-> System.out.println(id)).count());
@@ -184,11 +184,16 @@ public class DistanceGenerator {
                         //calculate the distance between these 2 nodeIds
                         //i.e. use the DTx and D'Tx matrices
                         int nodeDistance = Dtx.getNodeDistance(prunedNodeId, experimentTreeNodeId);
+                        
+                        //got coordinates of placed read
+                        String[] readInfos=name.split("_");
+                        int readStart=Integer.decode(readInfos[readInfos.length-2]);
+                        int readEnd=Integer.decode(readInfos[readInfos.length-1]);
 
-                        System.out.println(name+" -> nodeDistance:"+nodeDistance);
+                        //System.out.println(name+" -> nodeDistance:"+nodeDistance);
                         EPAResults.put(experimentLabel+":"+name, nodeDistance);
                         //software;Ax;k;alpha;Rx;read;node_dist
-                        bw.append("EPA;"+experimentLabel+";;;;"+readLabel+";"+name+";"+readSize+";"+nodeDistance+"\n");
+                        bw.append("EPA;"+experimentLabel+";;;;"+readLabel+";"+name+";"+readSize+";"+nodeDistance+";"+readStart+";"+readEnd+"\n");
                     }
 
                 }
@@ -221,8 +226,8 @@ public class DistanceGenerator {
                     //System.out.println("experimentTree best placement(s):"+experimentPlacements);
 
                     JplacerLoader PPLJplace=new JplacerLoader(currentJPlaceFile.toFile());
-                    System.out.println("PPLJplace tree: "+PPLJplace.getTree());
-                    System.out.println("experimentTree: "+experimentTree);
+                    //System.out.println("PPLJplace tree: "+PPLJplace.getTree());
+                    //System.out.println("experimentTree: "+experimentTree);
                     if (PPLJplace.getTree().getNodeCount()!=experimentTree.getNodeCount()) {
                         System.out.println("Something is wrong between the JPlace and expected_placements.bin trees.");
                         System.out.println("They do not include the same trees for the same Nx experiment.");
@@ -251,13 +256,18 @@ public class DistanceGenerator {
                         //i.e. use the DTx and D'Tx matrices
 
                         //TODO: add the Nx ids in the expected placement binary
+                        
+                        //got coordinates of placed read
+                        String[] readInfos=name.split("_");
+                        int readStart=Integer.decode(readInfos[readInfos.length-2]);
+                        int readEnd=Integer.decode(readInfos[readInfos.length-1]);
 
                         int nodeDistance = Dtx.getNodeDistance(prunedNodeId, experimentTreeNodeId);
 
-                        System.out.println(name+" -> nodeDistance:"+nodeDistance);
+                        //System.out.println(name+" -> nodeDistance:"+nodeDistance);
                         PPLResults.put(experimentLabel+":"+name, nodeDistance);
                         //software;Ax;k;alpha;Rx;read;node_dist
-                        bw.append("PPL;"+experimentLabel+";;;;"+readLabel+";"+name+";"+readSize+";"+nodeDistance+"\n");
+                        bw.append("PPL;"+experimentLabel+";;;;"+readLabel+";"+name+";"+readSize+";"+nodeDistance+";"+readStart+";"+readEnd+"\n");
                     }
 
                 }
@@ -292,14 +302,14 @@ public class DistanceGenerator {
                     //elements in filename in rappas ex: placements_ R3_nx3_la_r900.fasta_medium .jplace
                     String infos=currentJPlaceFile.getFileName().toString().split("\\.jplace$")[0].substring(11);  //11, to remove prefix "placements_"
                     String readLabel=infos.split("\\.")[0];
-                     System.out.print(" read:"+readLabel);
+                    //System.out.print(" read:"+readLabel);
                     //elements in filename in rappas ex: R3 nx3 la r900.fasta medium
                     String[]elts=infos.split("_");
                     String dbSize=elts[elts.length-1];
-                    System.out.print(" dbSize:"+dbSize);
+                    //System.out.print(" dbSize:"+dbSize);
                     String readSizeElts=elts[elts.length-2];
                     String readSize=readSizeElts.substring(1, readSizeElts.length()-6);
-                    System.out.println(" readSize:"+readSize);
+                    //System.out.println(" readSize:"+readSize);
 
 
                     //pruning infos
@@ -311,8 +321,8 @@ public class DistanceGenerator {
                     //System.out.println("experimentTree nodeIds:"+experimentTree.getNodeIdsByDFS());
                     //System.out.println("experimentTree best placement(s):"+experimentPlacements);
                     JplacerLoader RAPJplace=new JplacerLoader(currentJPlaceFile.toFile());
-                    System.out.println("RAPJplace tree: "+RAPJplace.getTree());
-                    System.out.println("experimentTree: "+experimentTree);
+                    //System.out.println("RAPJplace tree: "+RAPJplace.getTree());
+                    //System.out.println("experimentTree: "+experimentTree);
                     if (RAPJplace.getTree().getNodeCount()!=experimentTree.getNodeCount()) {
                         System.out.println("Something is wrong between the JPlace and expected_placements.bin trees.");
                         System.out.println("They do not include the same trees for the same Nx experiment.");
@@ -342,10 +352,16 @@ public class DistanceGenerator {
                         //TODO: add the Nx ids in the expected placement binary
 
                         int nodeDistance = Dtx.getNodeDistance(prunedNodeId, experimentTreeNodeId);
+                        
+                        //got coordinates of placed read
+                        String[] readInfos=name.split("_");
+                        int readStart=Integer.decode(readInfos[readInfos.length-2]);
+                        int readEnd=Integer.decode(readInfos[readInfos.length-1]);
+                        
 
-                        System.out.println(name+" -> nodeDistance:"+nodeDistance);
+                        //System.out.println(name+" -> nodeDistance:"+nodeDistance);
                         //software;Ax;k;alpha;Rx;read;node_dist
-                        bw.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";"+nodeDistance+"\n");
+                        bw.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";"+nodeDistance+";"+readStart+";"+readEnd+"\n");
 
                         
                         int distEPA=-1;
