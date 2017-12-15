@@ -11,4 +11,13 @@ do
 	echo "array_id to relaunch:"$i
 	awk "NR==$i" "k"$2"_placement_commands.list" >> "k"$2"_to_relaunch"
 done
+
+if [ ! -f "k"$2"_placement_commands.list_backup" ]
+then
+    echo "backup file created"
+    cp "k"$2"_placement_commands.list" "k"$2"_placement_commands.list_backup"
+fi
+
+cp "k"$2"_to_relaunch" "k"$2"_placement_commands.list"
+
 exit 0

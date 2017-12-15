@@ -85,7 +85,7 @@ public class PrunedTreeGenerator {
     int[] R={3,6};
     //standard deviation for each r in R
     double Rsd=0.5;
-    int Rmin=1; //let's consider that we have at least 75bp reads
+    int Rmin=75; //let's consider that we have at least 75bp reads
 
     //set which minK/alpha are tested (1 directory created par combination
     int minK=5;
@@ -121,6 +121,9 @@ public class PrunedTreeGenerator {
     public static void main(String[] args) {
         
         System.out.println("ARGS: workDir ARBinaries HMMBinariesDir align tree percentPruning(float) readSize1(int),readSize2(int),... readSD(int) [ branchPerEdge[int] ] [ kmin[int] kmax[int] kstep[int] amin[float] amax[float] astep[float] ] ");
+        
+        System.out.println("Command: "+Arrays.toString(args).replaceAll(",", " "));
+
         
         try {
             //launch
@@ -597,6 +600,9 @@ public class PrunedTreeGenerator {
             //SAVE THE MODIFIED TREES AND ALIGNMENTS
             
             //write alignment to file and list
+            //remove columns of 100% gaps only to not interfere in
+            //ancestral reconstruction
+            alignCopy.reduceAlignment(1.0);
             alignCopy.writeAlignmentAsFasta(Ax);
             //save the pruned ancTree
             System.out.println("Indexing pruned tree");

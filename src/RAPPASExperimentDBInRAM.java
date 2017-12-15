@@ -60,7 +60,7 @@ public class RAPPASExperimentDBInRAM {
     public static void main(String[] args) {
         
         try {
-            System.out.println("ARGS: workDir RAPPASJar arBinary");
+            System.out.println("ARGS: workDir RAPPASJar arBinary");            
             
             //launch
             RAPPASExperimentDBInRAM exp=new RAPPASExperimentDBInRAM();
@@ -75,6 +75,8 @@ public class RAPPASExperimentDBInRAM {
                 System.out.println("RAPPASJar: "+exp.RAPPAJar);
                 System.out.println("arBinary: "+exp.arBinary);
             }  
+            
+            
             
 
             //load alignments trees from AxDir/Tx directories
@@ -213,7 +215,8 @@ public class RAPPASExperimentDBInRAM {
                         //sb.append("--force-root "); //not necessary, as trees from Tx directory should already be rooted and with added_root node
                         sb.append("--dbinram ");
                         sb.append("--nsbound -100000000.0 "); //skip calibration for this test.
-                        sb.append("--no-reduction "); //do not modify input alignment
+                        sb.append("--no-reduction ");
+                        sb.append("--do-gap-jumps ");
                         
                         //for all query reads
                         sb.append("-q "+listFiles[0]);
