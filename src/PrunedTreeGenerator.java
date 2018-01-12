@@ -86,6 +86,9 @@ public class PrunedTreeGenerator {
     //standard deviation for each r in R
     double Rsd=0.5;
     int Rmin=75; //let's consider that we have at least 75bp reads
+    
+    //set if analysis is protein or DNA/RNA
+    boolean proteinAnalysis=false;
 
     //set which minK/alpha are tested (1 directory created par combination
     int minK=5;
@@ -120,7 +123,7 @@ public class PrunedTreeGenerator {
         
     public static void main(String[] args) {
         
-        System.out.println("ARGS: workDir ARBinaries HMMBinariesDir align tree percentPruning(float) readSize1(int),readSize2(int),... readSD(int) [ branchPerEdge[int] ] [ kmin[int] kmax[int] kstep[int] amin[float] amax[float] astep[float] ] ");
+        System.out.println("ARGS: workDir ARBinaries HMMBinariesDir align tree percentPruning(float) readSize1(int),readSize2(int),... readSD(int) [ branchPerEdge[int] kmin[int] kmax[int] kstep[int] amin[float] amax[float] astep[float] [nucl=0|prot=1] ] ");
         
         System.out.println("Command: "+Arrays.toString(args).replaceAll(",", " "));
 
@@ -159,6 +162,8 @@ public class PrunedTreeGenerator {
                     ptg.minFactor=Float.parseFloat(args[12]);
                     ptg.maxFactor=Float.parseFloat(args[13]);
                     ptg.factorIncrement=Float.parseFloat(args[14]);
+                    int protein=Integer.parseInt(args[15]);
+                    ptg.proteinAnalysis=(protein>0);
                 }
                 
             } //if no args use default values
@@ -181,6 +186,7 @@ public class PrunedTreeGenerator {
             System.out.println("minalpha:"+ptg.minFactor);
             System.out.println("maxalpha:"+ptg.maxFactor);
             System.out.println("incrementalpha:"+ptg.factorIncrement);
+            System.out.println("protein:"+ptg.proteinAnalysis);
 
             //TEST ZONE
             
@@ -859,9 +865,14 @@ public class PrunedTreeGenerator {
             System.out.println("Build AR commands in: "+ARDir.getAbsolutePath());
             ARProcessLauncher arpl=null;
             StringBuilder ARCommand = new StringBuilder("");
-            if (ARExecutablePath.getName().contains("phyml")) {
+            if (proteinAnalysis) {
+                arpl=new ARProcessLauncher(ARExecutablePath, false,ArgumentsParser_v2.TYPE_PROTEIN);
+            } else {
                 arpl=new ARProcessLauncher(ARExecutablePath, false,ArgumentsParser_v2.TYPE_DNA);
-                ARCommand.append( arpl.prepareAR(ARDir, fileRelaxedAlignmentPhylip, fileRelaxedTreewithBLNoInternalNodeLabels) );
+            }
+            ARCommand.append( arpl.prepareAR(ARDir, fileRelaxedAlignmentPhylip, fileRelaxedTreewithBLNoInternalNodeLabels) );
+            
+            if (ARExecutablePath.getName().contains("phyml")) {
                 //add move of the 4 files to the AR directory, as phyml write 
                 //outputs near its input alignment file
                 //phyml is written all data files near the input aignment file...
@@ -886,10 +897,7 @@ public class PrunedTreeGenerator {
                 ARCommand.append(" ; mv "+seq.getAbsolutePath()+" "+seqNew.getAbsolutePath());
                 ARCommand.append(" ; mv "+oriTree.getAbsolutePath()+" "+oriTreeNew.getAbsolutePath());
  
-            } else {
-                arpl=new ARProcessLauncher(ARExecutablePath, false,ArgumentsParser_v2.TYPE_DNA);
-                ARCommand.append( arpl.prepareAR(ARDir, fileRelaxedAlignmentPhylip, fileRelaxedTreewithBLNoInternalNodeLabels) );
-            }
+            } 
             
             //prepare corresponding AR commands (with PAML)
             bw.append("echo \""+ARCommand+"\" | qsub -N AR_"+DxExpPath.getName()+" -wd "+ARDir.getAbsolutePath());
@@ -998,15 +1006,26 @@ public class PrunedTreeGenerator {
             //build the hmmbuild command. 1 hmm per experiment
             StringBuilder commandSet=new StringBuilder();
             //commandSet.append("#!/bin/sh\n");
-            commandSet.append(HMMBUILDPath.getAbsolutePath()+" --dna "+hmmOuput.getAbsolutePath()+" "+Ax.getAbsolutePath()+"\n");
+            commandSet.append(HMMBUILDPath.getAbsolutePath()+" ");
+            if (proteinAnalysis) {
+                commandSet.append("--amino ");
+            } else {
+                commandSet.append("--dna ");
+            }
+            commandSet.append(hmmOuput.getAbsolutePath()+" "+Ax.getAbsolutePath()+"\n");
             
             //build alignments of reads
             List<String> reads=readFiles.get(experimentAlignmentLabel);
             //System.out.println("Rx files: "+readFiles.get(experimentLabel));
             for (int j=0;j<reads.size();j++) {
                 File alnOutput=new File(HMMxAxDir.getAbsolutePath()+File.separator+reads.get(j).split("\\.fasta$")[0]+".aln.psiblast");
-                commandSet.append(HMMALIGNPath.getAbsolutePath()+" --outformat PSIBLAST "
-                                    + " --mapali "+Ax.getAbsolutePath()+" -o "+alnOutput.getAbsolutePath()
+                commandSet.append(HMMALIGNPath.getAbsolutePath()+" --outformat PSIBLAST ");
+                if (proteinAnalysis) {
+                    commandSet.append("--amino ");
+                } else {
+                    commandSet.append("--dna ");
+                }
+                commandSet.append( "--mapali "+Ax.getAbsolutePath()+" -o "+alnOutput.getAbsolutePath()
                                     + " "+hmmOuput+" "+RxDir.getAbsolutePath()+File.separator+reads.get(j)
                                     + "\n");     
                 //conversion to fasta
