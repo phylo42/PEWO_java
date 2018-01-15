@@ -28,6 +28,8 @@ public class EPAExperiment {
     //workDir
     String HOME = System.getenv("HOME");
     File workDir=new File(HOME+"/Dropbox/viromeplacer/test_datasets/accuracy_tests/6_leaves_test_set");
+    //set if analysis is protein or DNA/RNA
+    boolean proteinAnalysis=false;
 
     //list of new files
     public List<File> prunedAlignmentsFiles=new ArrayList<>(); //list of pruned alignments
@@ -53,7 +55,7 @@ public class EPAExperiment {
         
         FileWriter fw=null;
         try {
-            System.out.println("ARGS: workDir RAxMLBinary");
+            System.out.println("ARGS: workDir RAxMLBinary [nucl=0|prot=1]");
             
             //launch
             EPAExperiment exp=new EPAExperiment();
@@ -62,8 +64,11 @@ public class EPAExperiment {
             if(args.length>0) {
                 exp.workDir=new File(args[0]);
                 exp.RAxMLBinary=new File(args[1]);
+                int protein=Integer.parseInt(args[2]);
+                exp.proteinAnalysis=(protein>0);
                 System.out.println("workDir: "+exp.workDir);
                 System.out.println("RAxMLBinary: "+exp.RAxMLBinary);
+                System.out.println("proteinAnalysis:"+exp.proteinAnalysis);
             }  
             
 
@@ -111,8 +116,13 @@ public class EPAExperiment {
                     //build the placement commands
                     //example:  RAxMLBinary -f v -G 0.1 -m GTRCAT -n EPA -s ../concat_basic_queries.fasta -t ../RAxML_bestTree.basic_tree
                     StringBuilder sbRAxMLCommand=new StringBuilder();
-                    sbRAxMLCommand.append(  exp.RAxMLBinary.getAbsolutePath()+" " +
-                            "-f v -G 0.1 -m GTRCAT " +
+                    sbRAxMLCommand.append(  exp.RAxMLBinary.getAbsolutePath()+" -f v -G 0.1");
+                    if (exp.proteinAnalysis) {
+                        sbRAxMLCommand.append(" -m PROTCATLG ");
+                    } else {
+                        sbRAxMLCommand.append(" -m GTRCAT ");
+                    }
+                    sbRAxMLCommand.append(        
                             "-n "+readAlignLabel+" " +
                             "-s "+f.getAbsolutePath()+" " +
                             "-t "+exp.prunedTreesFiles.get(i).getAbsolutePath()

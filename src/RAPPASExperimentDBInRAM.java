@@ -35,6 +35,8 @@ public class RAPPASExperimentDBInRAM {
     String HOME = System.getenv("HOME");
     File workDir=new File(HOME+"/Dropbox/viromeplacer/test_datasets/accuracy_tests/6_leaves_test_set");
     File arBinary=new File("baseml");
+    //set if analysis is protein or DNA/RNA
+    boolean proteinAnalysis=false;
 
     //list of new files
     public List<File> prunedAlignmentsFiles=new ArrayList<>(); //list of pruned alignments
@@ -60,7 +62,7 @@ public class RAPPASExperimentDBInRAM {
     public static void main(String[] args) {
         
         try {
-            System.out.println("ARGS: workDir RAPPASJar arBinary");            
+            System.out.println("ARGS: workDir RAPPASJar arBinary [nucl=0|prot=1]");            
             
             //launch
             RAPPASExperimentDBInRAM exp=new RAPPASExperimentDBInRAM();
@@ -71,9 +73,13 @@ public class RAPPASExperimentDBInRAM {
                 exp.workDir=new File(args[0]);
                 exp.RAPPAJar=new File(args[1]);
                 exp.arBinary=new File(args[2]);
+                int protein=Integer.parseInt(args[3]);
+                exp.proteinAnalysis=(protein>0);
+
                 System.out.println("workDir: "+exp.workDir);
                 System.out.println("RAPPASJar: "+exp.RAPPAJar);
                 System.out.println("arBinary: "+exp.arBinary);
+                System.out.println("proteinAnalysis:"+exp.proteinAnalysis);
             }  
             
             
@@ -199,7 +205,7 @@ public class RAPPASExperimentDBInRAM {
 //                        } else {
 //                            sb.append("-XX:NewSize=22000m -XX:MaxNewSize=22000m ");
 //                        }
-                        //new
+                        //new optim more compatible with large heaps on linne/watson nodes
                         sb.append("-XX:+UseG1GC -XX:InitiatingHeapOccupancyPercent=95 -XX:ParallelGCThreads=1 -XX:ConcGCThreads=1 ");
                         
                         
@@ -207,6 +213,13 @@ public class RAPPASExperimentDBInRAM {
                         sb.append("-t "+Tx.getAbsolutePath()+" ");
                         sb.append("-r "+Ax.getAbsolutePath()+" ");
                         sb.append("-w "+DxAxKAlphaDir+" ");
+                        if (exp.proteinAnalysis) {
+                            sb.append("-s amino ");
+                        } else {
+                            sb.append("-s nucl ");
+                        }
+                        
+                        
                         sb.append("--arbinary "+exp.arBinary.getAbsolutePath()+" "); //not used as --ardir is settled, but allow the program to know it's baseml
                         sb.append("--ardir "+DxAxKAlphaDir+File.separator+"AR ");
                         //sb.append("--extree "+DxAxKAlphaDir+File.separator+"extended_trees "); //TODO: currently raise bugs, ids mappings problems...
@@ -216,7 +229,7 @@ public class RAPPASExperimentDBInRAM {
                         sb.append("--dbinram ");
                         sb.append("--nsbound -100000000.0 "); //skip calibration for this test.
                         sb.append("--no-reduction ");
-                        sb.append("--do-gap-jumps ");
+                        //sb.append("--do-gap-jumps ");
                         
                         //for all query reads
                         sb.append("-q "+listFiles[0]);

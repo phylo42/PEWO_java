@@ -27,6 +27,8 @@ public class PPLACERExperiment {
     //workDir
     String HOME = System.getenv("HOME");
     File workDir=new File(HOME+"/Dropbox/viromeplacer/test_datasets/accuracy_tests/6_leaves_test_set");
+    //set if analysis is protein or DNA/RNA
+    boolean proteinAnalysis=false;
 
     //list of new files
     public List<File> prunedAlignmentsFiles=new ArrayList<>(); //list of pruned alignments
@@ -58,7 +60,7 @@ public class PPLACERExperiment {
         FileWriter fw=null;
         try {
             System.out.println("WARNING: 'taxtastic' command needs to be set in launch environement");
-            System.out.println("ARGS: workDir PPLACERBinary statisticFile(ex:RAxML_info_xxx)");
+            System.out.println("ARGS: workDir PPLACERBinary statisticFile(ex:RAxML_info_xxx) [nucl=0|prot=1]");
             
             //launch
             PPLACERExperiment exp=new PPLACERExperiment();
@@ -69,10 +71,14 @@ public class PPLACERExperiment {
                 exp.PPLACERBinary=new File(args[1]);
                 //exp.TAXITBinary=new File(args[2]);
                 exp.statFile=new File(args[2]);
+                int protein=Integer.parseInt(args[3]);
+                exp.proteinAnalysis=(protein>0);
+                
                 System.out.println("workDir: "+exp.workDir);
                 System.out.println("PPLACERBinary: "+exp.PPLACERBinary);
                 //System.out.println("TAXITBinary: "+exp.TAXITBinary);
                 System.out.println("statFile: "+exp.statFile);
+                System.out.println("proteinAnalysis:"+exp.proteinAnalysis);
             }  
             
 
@@ -135,9 +141,13 @@ public class PPLACERExperiment {
                     sbPPlacerCommands.append(  exp.PPLACERBinary.getAbsolutePath() +
                                             " --verbosity 2" +
                                             " -c " +PPLxAxDir.getAbsolutePath()+File.separator+"refpkg" +
-                                            " "+f.getAbsolutePath() +
-                                            "\n"
-                    );
+                                            " "+f.getAbsolutePath()
+                                            );
+                    if (exp.proteinAnalysis) {
+                       sbPPlacerCommands.append(" -m LG \n");
+                    } else {
+                       sbPPlacerCommands.append(" -m GTR \n");
+                    }
                 }
                 //vire l'env python
                 sbPPlacerCommands.append("source deactivate\n");
