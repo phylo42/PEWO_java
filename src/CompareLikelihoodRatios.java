@@ -29,9 +29,9 @@ public class CompareLikelihoodRatios {
         File EPAFile=new File("/home/ben/Dropbox/viromeplacer/test_datasets/pplacer_epa_big_dataset/epa/RAxML_portableTree.EPA.jplace");
         File PPLFile=new File("/media/ben/STOCK/SOFTWARE/pplacer-Linux-v1.1.alpha18-2-gcb55169/fhcrc-microbiome-demo-730d268/p4z1r36.jplace");
 
-        JplacerLoader jlRAP=new JplacerLoader(RAPFile);
-        JplacerLoader jlEPA=new JplacerLoader(EPAFile);
-        JplacerLoader jlPPL=new JplacerLoader(PPLFile);
+        JplacerLoader jlRAP=new JplacerLoader(RAPFile, false);
+        JplacerLoader jlEPA=new JplacerLoader(EPAFile, false);
+        JplacerLoader jlPPL=new JplacerLoader(PPLFile, false);
         
         File comparisonFile=new File("/media/ben/STOCK/DATA/viromeplacer/accu_tests/R_analysis/comparison_weightratio.csv");
         BufferedWriter writer = Files.newBufferedWriter(comparisonFile.toPath(), StandardCharsets.UTF_8);   

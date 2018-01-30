@@ -1,6 +1,7 @@
 package jplace;
 
 
+import etc.Infos;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -41,7 +42,12 @@ public class JplacerLoader {
     int edgeIdIndex=-1;
     int weightRatioIndex=-1;
     
-    public JplacerLoader(File jplaceFile) {
+    /**
+     *
+     * @param jplaceFile the value of jplaceFile
+     * @param correctEPANGUnrooting the value of correctEPANGUnrooting
+     */
+    public JplacerLoader(File jplaceFile, boolean correctEPANGUnrooting) {
     
         try {
             
@@ -51,7 +57,70 @@ public class JplacerLoader {
             
             //read tree
             String treeString=(String)topLevel.get("tree");
-            tree=NewickReader.parseNewickTree2(treeString, false, true); //init indexes already done in the parser
+            
+            //if this is from a EPANG output, a rooted input will be unrooted 
+            // ((A,B),C)root; --> (C,B,A);
+            //so, need to reorder string elements, then reroot the tree
+            //as jplaceEdgeIds are registered in PhyloNodes, the rooted tree copy
+            //returned by this operation still contains the correct jplace edge ids.
+            //indexation is done after rooting.
+            //jplaceId of added_root will be -1
+            
+            if (correctEPANGUnrooting) {
+                Infos.println("Reversing EPA-ng unrooting...");
+
+                //first change newick string to get root sons 
+                //order from (C3,C2,C1); to (C1,C2,C3);
+
+                //1st, define root
+                int cladeClosingIndex=-1;
+                for (int i = treeString.length()-1; i >= 0; i--) {
+                    if (treeString.charAt(i)==')') {
+                        cladeClosingIndex=i; 
+                        break;
+                    }
+                }
+                //System.out.println("Closing index: "+cladeClosingIndex);
+
+                //2nd, extract C1 to C3
+                String[] clades=new String[4]; //the 4th contains the root node 
+                int depth=0;
+                int cladeStart=1;
+                int cladeCounter=0;
+                for (int i = 0; i < treeString.length(); i++) {
+                    char c=treeString.charAt(i);
+                    if (c=='(') { depth++; }
+                    if (c==')') { depth--; }
+                    //we arrive or return to clade attached to root
+                    if ( (depth==1 && c==',') || (depth==0 && i==cladeClosingIndex) ) {
+                        //store previous clade string
+                        if (i>0) {
+                            clades[cladeCounter]=treeString.substring(cladeStart,i);
+                            //System.out.println(clades[cladeCounter]);
+                            cladeCounter++;
+                        }
+                        cladeStart=i+1;
+
+                        continue;
+                    }
+
+                }
+                //last one = the root
+                clades[cladeCounter]=treeString.substring(cladeStart,treeString.length());
+                //System.out.println(clades[cladeCounter]); 
+
+                //reorder
+                treeString="("+clades[2]+","+clades[1]+","+clades[0]+")"+clades[3];
+                //System.out.println("---\n"+originalTreeString+"\n---\n");
+
+
+                //then force rooting, which goes back to the original extended tree rooting
+                this.tree=NewickReader.parseNewickTree2(treeString, true, true);
+
+            } else {
+                this.tree=NewickReader.parseNewickTree2(treeString, false, true); //init indexes already done in the parser
+            }
+            
             //System.out.println("isFromJplace:"+tree.isFromJplace());
             //System.out.println("jPlaceMappings:"+tree.getAllJPlaceMappings());
             
@@ -174,7 +243,7 @@ public class JplacerLoader {
     public static void main(String[] args) {
         //tests
         File test=new File("/home/ben/Dropbox/viromeplacer/test_datasets/WD_LARGE_PAML/logs/placements_mod_p4z1r36_query_only2.fasta_union.jplace");
-        JplacerLoader jl=new JplacerLoader(test);
+        JplacerLoader jl=new JplacerLoader(test, false);
 
     }
     

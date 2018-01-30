@@ -46,9 +46,12 @@ import tree.PhyloTreeModel;
  */
 
 /**
- * takes Ax ancTree and alignment as input, then build all the directories necessary.
- * Produces also the AR commands as qsub command list
- * to the method comparisons
+ * From an alignment and tree, build directories of pruning experiments, 
+ * if tree is unrooted then roots it for each pruning experiment,
+ * saves pruned alignments in Ax, pruned trees in Tx and generated reads in Rx,
+ * build Dtx matrice which defines node_dist between edges (note that roots 
+ * are not considered in this distance, the 2 edges sons of root are considered
+ * as the same placement) 
  * @author ben
  */
 public class PrunedTreeGenerator {
@@ -640,10 +643,10 @@ public class PrunedTreeGenerator {
         
             nodeDistMatrix.append(Nx.getLabel()+";"+Nx.getId());
             branchDistMatrix.append(Nx.getLabel()+";"+Nx.getId());  //TODO: this still contains errors (dist X0 to neighboor node not taken into account for node)... use nodeDist for now
-//            System.out.println(Arrays.toString(prunedNodeIds));
-//            System.out.println("Np_p:"+Np_p);
-//            System.out.println("Np_pp:"+Np_pp);
-//            System.out.println("b_new:"+b_new);
+            System.out.println(Arrays.toString(prunedNodeIds));
+            //System.out.println("Np_p:"+Np_p);
+            //System.out.println("Np_pp:"+Np_pp);
+            //System.out.println("b_new:"+b_new);
             //using the nodeIds table, Dtx column order will match the
             //shuffled nodeIds, like this the first xx% correspond to the
             //pruned nodes. we could have used ancTree.getNodeIdsByDFS() too.
@@ -652,7 +655,7 @@ public class PrunedTreeGenerator {
                 //System.out.println("+++++++++++currentNode:"+currentNode);
                 nodeDistMatrix.append(";");
                 branchDistMatrix.append(";");
-                if (currentNode==null) { //this node was pruned, so absent from treeCopy
+                if (currentNode==null) { //this node was pruned, so absent from Tx tree copy
                     nodeDistMatrix.append("-1");
                     branchDistMatrix.append("-1.0");
                     continue;
