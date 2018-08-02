@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  */
 
 /**
- *
+ * VERSION WITH HOMOGENE MODELS OVER ALL METHODS
  * @author ben
  */
 public class EPAExperiment {
@@ -76,7 +76,7 @@ public class EPAExperiment {
             File Ax=new File(exp.workDir.getAbsolutePath()+File.separator+"Ax");
             File Tx=new File(exp.workDir.getAbsolutePath()+File.separator+"Tx");
             exp.prunedAlignmentsFiles=Arrays.stream(Ax.listFiles()).sorted().collect(Collectors.toList());
-            exp.prunedTreesFiles=Arrays.stream(Tx.listFiles()).sorted().collect(Collectors.toList());
+            exp.prunedTreesFiles=Arrays.stream(Tx.listFiles()).filter((f)->f.getName().startsWith("T")).sorted().collect(Collectors.toList());
             System.out.println(exp.prunedAlignmentsFiles);
             System.out.println(exp.prunedTreesFiles);
             if (    exp.prunedAlignmentsFiles.size()<1 ||
@@ -118,9 +118,9 @@ public class EPAExperiment {
                     StringBuilder sbRAxMLCommand=new StringBuilder();
                     sbRAxMLCommand.append(  exp.RAxMLBinary.getAbsolutePath()+" -f v -G 0.1");
                     if (exp.proteinAnalysis) {
-                        sbRAxMLCommand.append(" -m PROTCATLG ");
+                        sbRAxMLCommand.append(" -m PROTGAMMALGF ");
                     } else {
-                        sbRAxMLCommand.append(" -m GTRCAT ");
+                        sbRAxMLCommand.append(" -m GTRGAMMA -c 4 ");
                     }
                     sbRAxMLCommand.append(        
                             "-n "+readAlignLabel+" " +
@@ -141,7 +141,6 @@ public class EPAExperiment {
             File qsubEPACommands=new File(EPAxDir.getAbsolutePath()+File.separator+"qsub_epa_commands");
             fw = new FileWriter(qsubEPACommands);
             fw.append(sbQsubCommands.toString());
-            fw.close();
             Files.setPosixFilePermissions(qsubEPACommands.toPath(), exp.perms);
             
         } catch (IOException ex) {

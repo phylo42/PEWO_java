@@ -89,7 +89,7 @@ public class RAPPASExperimentDBInRAM {
             File AxDir=new File(exp.workDir.getAbsolutePath()+File.separator+"Ax");
             File TxDir=new File(exp.workDir.getAbsolutePath()+File.separator+"Tx");
             exp.prunedAlignmentsFiles=Arrays.stream(AxDir.listFiles()).sorted().collect(Collectors.toList());
-            exp.prunedTreesFiles=Arrays.stream(TxDir.listFiles()).sorted().collect(Collectors.toList());
+            exp.prunedTreesFiles=Arrays.stream(TxDir.listFiles()).filter((f)->f.getName().startsWith("T")).sorted().collect(Collectors.toList());
             System.out.println(exp.prunedAlignmentsFiles);
             System.out.println(exp.prunedTreesFiles);
             if (    exp.prunedAlignmentsFiles.size()<1 ||

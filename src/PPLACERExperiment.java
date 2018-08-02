@@ -37,9 +37,6 @@ public class PPLACERExperiment {
     //where where are taxit and pplacer  
     //File TAXITBinary=new File(HOME+"/Dropbox/viromeplacer/test_datasets/software/pplacer-Linux-v1.1.alpha18-2-gcb55169/taxtastic/taxit");
     File PPLACERBinary=new File(HOME+"/Dropbox/viromeplacer/test_datasets/software/pplacer-Linux-v1.1.alpha18-2-gcb55169/pplacer");
-    
-    //stats files, required by taxit
-    File statFile=new File(HOME+"/Dropbox/viromeplacer/test_datasets/accuracy_tests/RAxML_info.6_leaves_test_set");
 
 
     //file permissions given to the qsub scripts
@@ -70,14 +67,12 @@ public class PPLACERExperiment {
                 exp.workDir=new File(args[0]);
                 exp.PPLACERBinary=new File(args[1]);
                 //exp.TAXITBinary=new File(args[2]);
-                exp.statFile=new File(args[2]);
-                int protein=Integer.parseInt(args[3]);
+                int protein=Integer.parseInt(args[2]);
                 exp.proteinAnalysis=(protein>0);
                 
                 System.out.println("workDir: "+exp.workDir);
                 System.out.println("PPLACERBinary: "+exp.PPLACERBinary);
                 //System.out.println("TAXITBinary: "+exp.TAXITBinary);
-                System.out.println("statFile: "+exp.statFile);
                 System.out.println("proteinAnalysis:"+exp.proteinAnalysis);
             }  
             
@@ -86,7 +81,7 @@ public class PPLACERExperiment {
             File Ax=new File(exp.workDir.getAbsolutePath()+File.separator+"Ax");
             File Tx=new File(exp.workDir.getAbsolutePath()+File.separator+"Tx");
             exp.prunedAlignmentsFiles=Arrays.stream(Ax.listFiles()).sorted().collect(Collectors.toList());
-            exp.prunedTreesFiles=Arrays.stream(Tx.listFiles()).sorted().collect(Collectors.toList());
+            exp.prunedTreesFiles=Arrays.stream(Tx.listFiles()).filter((f)->f.getName().startsWith("T")).sorted().collect(Collectors.toList());
             System.out.println(exp.prunedAlignmentsFiles);
             System.out.println(exp.prunedTreesFiles);
             if (    exp.prunedAlignmentsFiles.size()<1 ||
@@ -121,15 +116,17 @@ public class PPLACERExperiment {
                 FileWriter fwScript=new FileWriter(script);
                 StringBuilder sbPPlacerCommands=new StringBuilder();
                 //load anaconda environment (python environement where package taxtastic is installed)
-                sbPPlacerCommands.append("source /auto/pulicani/miniconda3/bin/activate benj\n");
+                sbPPlacerCommands.append("source /auto/pulicani/miniconda3/bin/activate benj\n"); //SOON /beegfs/home/pulicani/miniconda3/bin/activate benj
                 //create pplacer database from this pruned alignment/tree
                 //example:  taxit create -P ./basic -l basic -f ../basic.aln -t ../RAxML_bestTree.basic_tree -s ../RAxML_info.basic_tree 
+                //stat file will be   'Tx/RAxML_info.OPTIM_'+tree_name
+                File statFile=new File(Tx.getAbsoluteFile()+File.separator+"RAxML_info.OPTIM_"+exp.prunedTreesFiles.get(i).getName());
                 sbPPlacerCommands.append(   "taxit create" +
                                         " -P " +PPLxAxDir.getAbsolutePath()+File.separator+"refpkg" +
                                         " -l locus" +
                                         " -f " + exp.prunedAlignmentsFiles.get(i).getAbsolutePath() +
                                         " -t " + exp.prunedTreesFiles.get(i).getAbsolutePath() +
-                                        " -s " + exp.statFile.getAbsolutePath() +
+                                        " -s " + statFile.getAbsolutePath() +
                                         "\n"
                 );
                 //for each read file, do a placement using the pplacer database

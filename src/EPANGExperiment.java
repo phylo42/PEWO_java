@@ -83,7 +83,7 @@ public class EPANGExperiment {
             File Ax=new File(exp.workDir.getAbsolutePath()+File.separator+"Ax");
             File Tx=new File(exp.workDir.getAbsolutePath()+File.separator+"Tx");
             exp.prunedAlignmentsFiles=Arrays.stream(Ax.listFiles()).sorted().collect(Collectors.toList());
-            exp.prunedTreesFiles=Arrays.stream(Tx.listFiles()).sorted().collect(Collectors.toList());
+            exp.prunedTreesFiles=Arrays.stream(Tx.listFiles()).filter((f)->f.getName().startsWith("T")).sorted().collect(Collectors.toList());
             System.out.println(exp.prunedAlignmentsFiles);
             System.out.println(exp.prunedTreesFiles);
             if (    exp.prunedAlignmentsFiles.size()<1 ||
@@ -149,13 +149,19 @@ public class EPANGExperiment {
                     refsBW.close();
                     //build the placement commands
                     //example:  ../epa_sse3/bin/epa-ng -T 1 -t tree -s align -q queriesBuf --verbose ;
+                    File statFile=new File(Tx.getAbsoluteFile()+File.separator+"RAxML_info.OPTIM_"+exp.prunedTreesFiles.get(i).getName());
                     StringBuilder sbRAxMLCommand=new StringBuilder();
-                    sbRAxMLCommand.append(exp.EPANGBinary.getAbsolutePath()+" --verbose -T 1 ");
+                    //for parallel version
+                    //sbRAxMLCommand.append(exp.EPANGBinary.getAbsolutePath()+" --verbose -T 1 ");
+                    //EPANG was recompiled with make EPA_SERIAL=1, which removes MPI, then option -T is refused
+                    sbRAxMLCommand.append(exp.EPANGBinary.getAbsolutePath()+" --verbose ");
+
                     sbRAxMLCommand.append(
                             "-w "+EPAxAxDir.getAbsolutePath()+" " +
                             "-q "+queriesFile.getAbsolutePath()+" " +
                             "-s "+refsFile.getAbsolutePath()+" " +
-                            "-t "+exp.prunedTreesFiles.get(i).getAbsolutePath()+
+                            "-t "+exp.prunedTreesFiles.get(i).getAbsolutePath()+" "+
+                            "-m "+statFile.getAbsolutePath()+" "+
                             "\n"
                     );
                     //current epa alpha version cannot rename outputs, need to be done manually

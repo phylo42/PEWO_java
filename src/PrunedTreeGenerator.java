@@ -1,5 +1,7 @@
 
 import alignement.Alignment;
+import core.DNAStatesShifted;
+import core.States;
 import etc.Infos;
 import inputs.FASTAPointer;
 import inputs.Fasta;
@@ -47,11 +49,11 @@ import tree.PhyloTreeModel;
 
 /**
  * From an alignment and tree, build directories of pruning experiments, 
- * if tree is unrooted then roots it for each pruning experiment,
- * saves pruned alignments in Ax, pruned trees in Tx and generated reads in Rx,
- * build Dtx matrice which defines node_dist between edges (note that roots 
- * are not considered in this distance, the 2 edges sons of root are considered
- * as the same placement) 
+ if tree is unrooted then roots it for each pruning experiment,
+ saves pruned alignments in AxFile, pruned trees in TxFile and generated reads in Rx,
+ build Dtx matrice which defines node_dist between edges (note that roots 
+ are not considered in this distance, the 2 edges sons of root are considered
+ as the same placement) 
  * @author ben
  */
 public class PrunedTreeGenerator {
@@ -70,7 +72,7 @@ public class PrunedTreeGenerator {
     
     //nodes selected for pruning at this launch
     Integer[] prunedNodeIds=null;
-    //nodes effectively pruned because didn'Tx produce tre of less than 4 leaves
+    //nodes effectively pruned because didn'TxFile produce tre of less than 4 leaves
     ArrayList<Integer> actuallyPrunedNodeIdsIndexes=new ArrayList<>();
     
     //list of new files
@@ -111,6 +113,8 @@ public class PrunedTreeGenerator {
     File HMMBinariesDir=new File("/home/ben/Dropbox/viromeplacer/test_datasets/software/hmmer-3.1b2/binaries");
     File HMMBUILDPath=new File(HMMBinariesDir.getAbsolutePath()+File.separator+"hmmbuild");
     File HMMALIGNPath=new File(HMMBinariesDir.getAbsolutePath()+File.separator+"hmmalign");
+    //RAXML for tree optimisation
+    File RAXMLPath=new File("/home/ben/Dropbox/viromeplacer/test_datasets/software/RAxML-8.2.9/raxmlHPC-PTHREADS-SSE3");
     
     //file permissions given to the qsub scripts
     EnumSet<PosixFilePermission> perms =
@@ -126,7 +130,7 @@ public class PrunedTreeGenerator {
         
     public static void main(String[] args) {
         
-        System.out.println("ARGS: workDir ARBinaries HMMBinariesDir align tree percentPruning(float) readSize1(int),readSize2(int),... readSD(int) [ branchPerEdge[int] kmin[int] kmax[int] kstep[int] amin[float] amax[float] astep[float] [nucl=0|prot=1] ] ");
+        System.out.println("ARGS: workDir ARBinaries HMMBinariesDir RAXMLBinary align tree percentPruning(float) readSize1(int),readSize2(int),... readSD(int) [ branchPerEdge[int] kmin[int] kmax[int] kstep[int] amin[float] amax[float] astep[float] [nucl=0|prot=1] ] ");
         
         System.out.println("Command: "+Arrays.toString(args).replaceAll(",", " "));
 
@@ -143,38 +147,40 @@ public class PrunedTreeGenerator {
                 ptg.HMMBinariesDir=new File(args[2]);
                 ptg.HMMBUILDPath=new File(ptg.HMMBinariesDir.getAbsolutePath()+File.separator+"hmmbuild");
                 ptg.HMMALIGNPath=new File(ptg.HMMBinariesDir.getAbsolutePath()+File.separator+"hmmalign");
-                ptg.alignFile=new File(args[3]);
-                ptg.treeFile=new File(args[4]);
+                ptg.RAXMLPath=new File(args[3]);
+                ptg.alignFile=new File(args[4]);
+                ptg.treeFile=new File(args[5]);
                 //ptg.percentPruning=Double.parseDouble(args[5]);
-                ptg.pruningCount=Integer.parseInt(args[5]);
-                String[] readSizes=args[6].split(",");
+                ptg.pruningCount=Integer.parseInt(args[6]);
+                String[] readSizes=args[7].split(",");
                 ptg.R=new int[readSizes.length];
                 for (int i = 0; i < readSizes.length; i++) {
                     ptg.R[i]=Integer.valueOf(readSizes[i]);
                 }
-                ptg.Rsd=Integer.parseInt(args[7]);
+                ptg.Rsd=Integer.parseInt(args[8]);
                 
-                //optionnals
-                if (args.length>8) {
-                    ptg.branchPerEdge=Integer.parseInt(args[8]);
-                }
+                //optionnals, if no args use default values
                 if (args.length>9) {
-                    ptg.minK=Integer.parseInt(args[9]);
-                    ptg.maxK=Integer.parseInt(args[10]);
-                    ptg.kIncrement=Integer.parseInt(args[11]);
-                    ptg.minFactor=Float.parseFloat(args[12]);
-                    ptg.maxFactor=Float.parseFloat(args[13]);
-                    ptg.factorIncrement=Float.parseFloat(args[14]);
-                    int protein=Integer.parseInt(args[15]);
+                    ptg.branchPerEdge=Integer.parseInt(args[9]);
+                }
+                if (args.length>10) {
+                    ptg.minK=Integer.parseInt(args[10]);
+                    ptg.maxK=Integer.parseInt(args[11]);
+                    ptg.kIncrement=Integer.parseInt(args[12]);
+                    ptg.minFactor=Float.parseFloat(args[13]);
+                    ptg.maxFactor=Float.parseFloat(args[14]);
+                    ptg.factorIncrement=Float.parseFloat(args[15]);
+                    int protein=Integer.parseInt(args[16]);
                     ptg.proteinAnalysis=(protein>0);
                 }
                 
-            } //if no args use default values
+            }
             
             
             
             System.out.println("workDir: "+ptg.workDir);
             System.out.println("ARExecutable: "+ptg.ARExecutablePath);
+            System.out.println("RAXML Executable: "+ptg.ARExecutablePath);
             System.out.println("HMMAlignExecutable: "+ptg.HMMALIGNPath);
             System.out.println("HMMBuildExecutable: "+ptg.HMMBUILDPath);
             System.out.println("alignFile: "+ptg.alignFile);
@@ -222,13 +228,14 @@ public class PrunedTreeGenerator {
             //LOAD TREE / ALIGNMENTS
             ///////////////////////////////////////////////////
             //load alignment
+            States s=new DNAStatesShifted();
             FASTAPointer fp=new FASTAPointer(ptg.alignFile, false);
             Fasta fasta=null;
             ArrayList<Fasta> fastas=new ArrayList<>();
             while ((fasta=fp.nextSequenceAsFastaObject())!=null) {
                 fastas.add(fasta);
             }
-            Alignment align=new Alignment(fastas);
+            Alignment align=new Alignment(s,fastas);
             System.out.println(align.describeAlignment(false));
             fp.closePointer();
             //load ancTree
@@ -259,7 +266,7 @@ public class PrunedTreeGenerator {
             
             
             
-            //PREPARE ALL PRUNING EXPERIMENT FILES (Ax, Tx, Rx)
+            //PREPARE ALL PRUNING EXPERIMENT FILES (AxFile, TxFile, Rx)
             //Ax: the pruned alignments
             //Tx: the pruned trees
             //Rx: the reads built from the pruned leaves
@@ -268,7 +275,7 @@ public class PrunedTreeGenerator {
             //      build AR command, without execution
             //      prepare script which launch these using SGE (qsub)  
             //AND BUILD HMM directories and alignments for all pruning experiments
-            //i.e. : build the hmm profile from the corresponding Ax
+            //i.e. : build the hmm profile from the corresponding AxFile
             //       align all Rx reads to this profile
             //       convert the result from stockolm to fasta alignment
             ///////////////////////////////////////////////////
@@ -280,7 +287,7 @@ public class PrunedTreeGenerator {
             
             ////////////////////////////////////////////////////////////////////
             //build HMM alignments for this current pruning experiment
-            //i.e. : build the hmm profile from the corresponding Ax
+            //i.e. : build the hmm profile from the corresponding AxFile
             //       align all Rx reads to this profile
             //       convert the result from stockolm to fasta alignment
 
@@ -321,7 +328,7 @@ public class PrunedTreeGenerator {
         
         //==> modif pr que prunedAlignmentsFiles et prunedTreesFiles aient même taille que actuallyPrunedNodeIdsIndexes
         
-        //to ensure consistent direcory names (alpha-> _ax.xx_)
+        //to ensure consistent direcory names (omega-> _ax.xx_)
         NumberFormat nf = NumberFormat.getNumberInstance();
         nf.setMinimumFractionDigits(2);
         nf.setMaximumFractionDigits(2);
@@ -347,6 +354,20 @@ public class PrunedTreeGenerator {
         //log registering all skipped Nx, and the reason
         File skippedLog=new File(workDir+File.separator+"SKIPPED_Nx");
         BufferedWriter skippedLogBw=new BufferedWriter(new FileWriter(skippedLog,false));
+        
+        //prepare the output directories
+        File AxDir=new File(workDir+File.separator+"Ax");
+        File TxDir=new File(workDir+File.separator+"Tx");
+        File RxDir=new File(workDir+File.separator+"Rx");
+        File GxDir=new File(workDir+File.separator+"Gx");
+        AxDir.mkdir();
+        TxDir.mkdir();
+        RxDir.mkdir();
+        GxDir.mkdir();
+            
+        //File where to save all model optimisations qsub commands
+        File qSubOptimCommands=new File(workDir+File.separator+"Tx"+File.separator+"qsub_optim_commands");
+        BufferedWriter bwOptim=new BufferedWriter(new FileWriter(qSubOptimCommands));
         
         //write in a binary file the pruned ancTree and the expected placement,
         //that is the branch b_new (and b_new_p if rerooting), see algo below.
@@ -379,12 +400,12 @@ public class PrunedTreeGenerator {
         Dx.mkdir();
         //File where to save all AR qsub commands
         File qSubARCommands=new File(workDir+File.separator+"Dx"+File.separator+"qsub_AR_commands");
-        BufferedWriter bw=new BufferedWriter(new FileWriter(qSubARCommands));
+        BufferedWriter bwAR=new BufferedWriter(new FileWriter(qSubARCommands));
         
         //HMM directory and qsub file
         //prepare files with all commands necessary for the HMM alignment build
-        //1. commands for 1 alignment are saved as Ax "set" of commands
-        //in Ax sh script.
+        //1. commands for 1 alignment are saved as AxFile "set" of commands
+        //in AxFile sh script.
         //2. all sh script calls are associated to qsub commands and put in
         //a single file
         StringBuilder qSubHMMCommands=new StringBuilder();
@@ -462,8 +483,8 @@ public class PrunedTreeGenerator {
                 //delete Nx children (this does not delete the sub nodes from memory !!!)
                 nextNx.removeAllChildren();
             }
-            //if this removal ends to Ax multiple alignment with only <3 leaves
-            //we don'Tx go further and pass to the next Nx.
+            //if this removal ends to AxFile multiple alignment with only <3 leaves
+            //we don'TxFile go further and pass to the next Nx.
             //This can happen for instance in this nx case:
             //
             //   R_____Leaf             or       R______Leaf1        
@@ -482,33 +503,28 @@ public class PrunedTreeGenerator {
             
             
             //REGISTER THIS PRUNING
-            //if reach here, we made Ax ancTree with more than 3 leaves, this pruning
+            //if reach here, we made AxFile ancTree with more than 3 leaves, this pruning
             // will be effectively operated
             actuallyPrunedNodeIdsIndexes.add(i);
             //so let's register this pruning index in the expected_placement.bin file
             NxIndex.put(nx_nodeId,actuallyPrunedNodeIdsIndexes.size()-1);
             
             
-            //prepare the corresponding output files
-            File AxDir=new File(workDir+File.separator+"Ax");
-            File TxDir=new File(workDir+File.separator+"Tx");
-            File RxDir=new File(workDir+File.separator+"Rx");
-            AxDir.mkdir();
-            TxDir.mkdir();
-            RxDir.mkdir();
+
             
-            File Ax=new File(AxDir+File.separator+"A"+i+"_nx"+nx_nodeId+"_la"+Nx.getLabel()+".align");
-            File Tx=new File(TxDir+File.separator+"T"+i+"_nx"+nx_nodeId+"_la"+Nx.getLabel()+".tree");
+            File AxFile=new File(AxDir+File.separator+"A"+i+"_nx"+nx_nodeId+"_la"+Nx.getLabel()+".align");
+            File TxFile=new File(TxDir+File.separator+"T"+i+"_nx"+nx_nodeId+"_la"+Nx.getLabel()+".tree");
+            File GxFile=new File(GxDir+File.separator+"G"+i+"_nx"+nx_nodeId+"_la"+Nx.getLabel()+".fasta");
             
             // !!!!!!!!!!!!!!
             // This label is the identifier used to describe this particular pruning experiment !
-            String experimentLabel=Ax.getName().split("\\.align$")[0];
+            String experimentLabel=AxFile.getName().split("\\.align$")[0];
             // !!!!!!!!!!!!!!
             
             
             ////////////////////////////////////////////////////////////////////
-            //second, built Tx.
-            //removal of node Nx of Tx is operated on the basis of the following
+            //second, built TxFile.
+            //removal of node Nx of TxFile is operated on the basis of the following
             //definitions:
             // -Np    parent of Nx
             // -Np''  parent of Np
@@ -536,7 +552,7 @@ public class PrunedTreeGenerator {
             //System.out.println("Np_p "+Np_p);
             float Np_p_bl=Np_p.getBranchLengthToAncestor(); //bl of Np' to Np
 
-            //memorize which edge is the best placement, this is Ax node, 
+            //memorize which edge is the best placement, this is AxFile node, 
             //but the edge going to its parent is best placement
             //if root is best placment, this edge is in fact null and of 
             //branch length =0
@@ -612,7 +628,7 @@ public class PrunedTreeGenerator {
             //remove columns of 100% gaps only to not interfere in
             //ancestral reconstruction
             alignCopy.reduceAlignment(1.0);
-            alignCopy.writeAlignmentAsFasta(Ax);
+            alignCopy.writeAlignmentAsFasta(AxFile);
             //save the pruned ancTree
             System.out.println("Indexing pruned tree");
             treeCopy.initIndexes(); //necessary to remove former nodes from the maps shortcuts
@@ -623,7 +639,7 @@ public class PrunedTreeGenerator {
             //and the expectedPlacement map will not match
             prunedTrees.add(treeCopy);
             System.out.println("Writing pruned tree newick");
-            NewickWriter nw=new NewickWriter(Tx);            
+            NewickWriter nw=new NewickWriter(TxFile);            
             nw.writeNewickTree(treeCopy, true, true, false);  //no internal node names if PAML !
             nw.close();
             //SAVE THE EXPECTED PLACEMENT 
@@ -655,7 +671,7 @@ public class PrunedTreeGenerator {
                 //System.out.println("+++++++++++currentNode:"+currentNode);
                 nodeDistMatrix.append(";");
                 branchDistMatrix.append(";");
-                if (currentNode==null) { //this node was pruned, so absent from Tx tree copy
+                if (currentNode==null) { //this node was pruned, so absent from TxFile tree copy
                     nodeDistMatrix.append("-1");
                     branchDistMatrix.append("-1.0");
                     continue;
@@ -717,7 +733,17 @@ public class PrunedTreeGenerator {
 
             ////////////////////////////////////////////////////////////////////
             //fourth, build Rx virtual read datasets from removedLeaves
-
+                 
+            //Save this pruned leafs in Gx, which can be used later for 
+            //simulating even more reads
+            FileWriter fwGx=new FileWriter(GxFile);
+            for (Iterator<String> it = leavesRemoved.iterator(); it.hasNext();) {
+                String next = it.next();
+                fwGx.append(align.getFasta(next, false).getFormatedFasta());
+                fwGx.append("\n");
+            }
+            fwGx.close();
+                    
             String expString="R"+i+"_nx"+nx_nodeId+"_la"+Nx.getLabel();
             for (int j = 0; j < R.length; j++) {
                 System.out.println("Preparing "+(j+1)+"th query read length in R="+Arrays.toString(R)+" ; Rsd="+Rsd);
@@ -729,12 +755,11 @@ public class PrunedTreeGenerator {
                     readFiles.put(experimentLabel,new ArrayList<String>(R.length));
                 readFiles.get(experimentLabel).add(Rxj.getName());
                        
-                FileWriter fw=new FileWriter(Rxj);
+                FileWriter fwRxj=new FileWriter(Rxj);                
                 int r = R[j];
                 for (Iterator<String> it = leavesRemoved.iterator(); it.hasNext();) {
                     String next = it.next();
                     String seqNoGaps=align.getFasta(next, false).getSequence(true);
-                    
            
                     //build leaf_length/readLength virtual reads
                     //if virtual read length > to seqLength, use full seqLength
@@ -744,7 +769,7 @@ public class PrunedTreeGenerator {
                         int p=0;
                         String read=seqNoGaps;
                         Fasta n=new Fasta(next+"_r"+R[j]+"_"+p+"_"+read.length(), read);
-                        fw.append(n.getFormatedFasta()+"\n"); 
+                        fwRxj.append(n.getFormatedFasta()+"\n"); 
                     }
                     
                     for (int k = 0; k < readCount; k++) {
@@ -774,7 +799,7 @@ public class PrunedTreeGenerator {
                             if (pEnd>seqNoGaps.length()) { pEnd=seqNoGaps.length(); }
                             String read=seqNoGaps.substring(pStart, pEnd);
                             Fasta n=new Fasta(next+"_r"+R[j]+"_"+pStart+"_"+pEnd, read);
-                            fw.append(n.getFormatedFasta()+"\n");
+                            fwRxj.append(n.getFormatedFasta()+"\n");
                         }
                         
 
@@ -791,18 +816,18 @@ public class PrunedTreeGenerator {
 //                        int pStart=rand.nextInt(seqNoGaps.length()-v_length+1);//this is an exclusive upper bound, so +1 to include last possibility
 //                        String read=seqNoGaps.substring(pStart, pStart+v_length);
 //                        Fasta n=new Fasta(next+"_r"+R[j]+"_"+pStart+"_"+(pStart+v_length-1), read);
-//                        fw.append(n.getFormatedFasta()+"\n");
+//                        fwRxj.append(n.getFormatedFasta()+"\n");
 //                    //if generated length longer than sequence, take whole sequence
 //                    } else if (v_length>=Rmin) {
 //                        int pStart=0;//this is an exclusive upper bound, so +1 to include last possibility
 //                        String read=seqNoGaps;
 //                        Fasta n=new Fasta(next+"_r"+R[j]+"_"+pStart+"_"+read.length(), read);
-//                        fw.append(n.getFormatedFasta()+"\n");
+//                        fwRxj.append(n.getFormatedFasta()+"\n");
 //                    }
                     
                     
                 }
-                fw.close();
+                fwRxj.close();
                 
             }
             
@@ -814,13 +839,30 @@ public class PrunedTreeGenerator {
             
             
             ////////////////////////////////////////////////////////////////////
-            //fifth, launch the generation of extended ancTree and AR commands
+            //fifth, build qsub commands to generate model parameters
+            //for this particular pruning
+            
+            
+            
+            StringBuilder optimCommand=new StringBuilder();
+            optimCommand.append(RAXMLPath.getAbsolutePath());
+            optimCommand.append(" -f e -m GTRGAMMA -c 4");
+            optimCommand.append(" -s ");
+            optimCommand.append(AxFile.getAbsolutePath());
+            optimCommand.append(" -t ");
+            optimCommand.append(TxFile.getAbsolutePath());
+            optimCommand.append(" -n OPTIM_");                    
+            optimCommand.append(TxFile.getName());                    
+            bwOptim.append("echo \""+optimCommand.toString()+"\" | qsub -N OPTIM_"+TxFile.getName()+" -wd "+TxDir.getAbsolutePath());
+            bwOptim.newLine();
+            
+            ////////////////////////////////////////////////////////////////////
+            //sixth, launch the generation of extended ancTree and AR commands
             //for this particular pruning
             
             
             //load data necessary to do the extended ancTree            
-            String experimentAlignmentLabel=Ax.getName().split("\\.align$")[0];
-            //String experimentTreeLabel=t.getName().split("\\.ancTree")[0];
+            String experimentAlignmentLabel=AxFile.getName().split("\\.align$")[0];
             
             System.out.println("PREPARING EXTENDED TREE/ALL DB_BUILDs FOR EXPERIMENT: "+experimentAlignmentLabel);
 
@@ -903,8 +945,8 @@ public class PrunedTreeGenerator {
             } 
             
             //prepare corresponding AR commands (with PAML)
-            bw.append("echo \""+ARCommand+"\" | qsub -N AR_"+DxExpPath.getName()+" -wd "+ARDir.getAbsolutePath());
-            bw.newLine();
+            bwAR.append("echo \""+ARCommand+"\" | qsub -N AR_"+DxExpPath.getName()+" -wd "+ARDir.getAbsolutePath());
+            bwAR.newLine();
             
             
             
@@ -921,7 +963,7 @@ public class PrunedTreeGenerator {
                     File combDir=new File(DxExpPath.getAbsolutePath()+File.separator+"k"+current_k+"_a"+nf.format(current_alpha));
                     boolean dirOK=combDir.mkdir();
                     
-                    //do Ax subdir AR/ in each minK/alpha directory
+                    //do AxFile subdir AR/ in each minK/alpha directory
                     File combDirAR=new File(combDir.getAbsolutePath()+File.separator+"AR");
                     combDirAR.mkdir();
                     File combDirExtendedTree=new File(combDir.getAbsolutePath()+File.separator+"extended_trees");
@@ -959,7 +1001,7 @@ public class PrunedTreeGenerator {
                     if (!linkToOriginalPhymlTree.exists())
                         Files.createSymbolicLink(linkToOriginalPhymlTree.toPath(), originalPhymlTree.toPath());
                     
-                    //do Ax subdir extended_trees/ in each minK/alpha directory
+                    //do AxFile subdir extended_trees/ in each minK/alpha directory
                     //make symbolic link to correpsonding trees/alignments
                     //which are in experiment directory (same trees/aligns for all minK/alpha combinations)
                     //this is necessary because these trees are required by db_build
@@ -990,7 +1032,7 @@ public class PrunedTreeGenerator {
             
             
             ////////////////////////////////////////////////////////////////////
-            //sixth, build HMM command matching this pruning experiment
+            //seventh, build HMM command matching this pruning experiment
             //
             
             //alignment filename is used as default workDir for this experiment
@@ -1015,7 +1057,7 @@ public class PrunedTreeGenerator {
             } else {
                 commandSet.append("--dna ");
             }
-            commandSet.append(hmmOuput.getAbsolutePath()+" "+Ax.getAbsolutePath()+"\n");
+            commandSet.append(hmmOuput.getAbsolutePath()+" "+AxFile.getAbsolutePath()+"\n");
             
             //build alignments of reads
             List<String> reads=readFiles.get(experimentAlignmentLabel);
@@ -1028,7 +1070,7 @@ public class PrunedTreeGenerator {
                 } else {
                     commandSet.append("--dna ");
                 }
-                commandSet.append( "--mapali "+Ax.getAbsolutePath()+" -o "+alnOutput.getAbsolutePath()
+                commandSet.append("--mapali "+AxFile.getAbsolutePath()+" -o "+alnOutput.getAbsolutePath()
                                     + " "+hmmOuput+" "+RxDir.getAbsolutePath()+File.separator+reads.get(j)
                                     + "\n");     
                 //conversion to fasta
@@ -1085,7 +1127,9 @@ public class PrunedTreeGenerator {
         System.out.println("############################################");
         //give execution rights to the commands file
         Files.setPosixFilePermissions(qSubARCommands.toPath(), perms);
-        bw.close();
+        bwAR.close();
+        Files.setPosixFilePermissions(qSubOptimCommands.toPath(), perms);
+        bwOptim.close();
         
 //        for (int i = 0; i < prunedTrees.size(); i++) {
 //            PhyloTree get = prunedTrees.get(i);
@@ -1220,11 +1264,11 @@ public class PrunedTreeGenerator {
         //File idsMappings=new File(extendedTreePath.getAbsolutePath()+File.separator+"extended_tree_node_mapping_from_prunedTreeGenerator.tsv");
         
         try {
-            //note, we read again the ancTree to build Ax new PhyloTree object
+            //note, we read again the ancTree to build AxFile new PhyloTree object
             //this is necessary as its TreeModel is directly modified
             //at instanciation of ExtendedTree
             extendedTree=new ExtendedTree(tree,minBranchLength,branchPerEdge);                    
-            extendedTree.initIndexes(); // don'Tx forget to reinit indexes !!!
+            extendedTree.initIndexes(); // don'TxFile forget to reinit indexes !!!
             ArrayList<PhyloNode> listOfNewFakeLeaves = extendedTree.getFakeLeaves();
             //System.out.println("RelaxedTree contains "+extendedTree.getLeavesCount()+ " leaves");
             //System.out.println("RelaxedTree contains "+extendedTree.getFakeLeaves().size()+ " FAKE_X new leaves");
@@ -1255,23 +1299,23 @@ public class PrunedTreeGenerator {
             nw=new NewickWriter(fileRelaxedTreewithBLNoInternalNodeLabels);
             nw.writeNewickTree(extendedTree, true, false, false);
             nw.close();
-            //save this extendedTree as Ax binary
+            //save this extendedTree as AxFile binary
 //            FileOutputStream fos = new FileOutputStream(fileRelaxedTreeBinary);
 //            ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(fos,4096));
 //            System.out.println("Storing binary version of ExtendedTree: "+fileRelaxedTreeBinary.getAbsolutePath());
 //            oos.writeObject(extendedTree);
 //            oos.close();
             //finally, for debugging, output the ids mappings
-//            FileWriter fw=new FileWriter(idsMappings);
-//            fw.append("original_id\toriginal_name\textended_id\textended_name");
+//            FileWriter fwRxj=new FileWriter(idsMappings);
+//            fwRxj.append("original_id\toriginal_name\textended_id\textended_name");
 //            LinkedHashMap<Integer, Integer> fakeNodeMapping = extendedTree.getFakeNodeMapping();
 //            for (Iterator<Integer> iterator = fakeNodeMapping.keySet().iterator(); iterator.hasNext();) {
 //                Integer next = iterator.next();
-//                fw.append("\n");
-//                fw.append(fakeNodeMapping.get(next)+"\t"+ancTree.getById(fakeNodeMapping.get(next)).getLabel()+"\t");
-//                fw.append(next+"\t"+extendedTree.getById(next).getLabel());
+//                fwRxj.append("\n");
+//                fwRxj.append(fakeNodeMapping.get(next)+"\t"+ancTree.getById(fakeNodeMapping.get(next)).getLabel()+"\t");
+//                fwRxj.append(next+"\t"+extendedTree.getById(next).getLabel());
 //            }
-//            fw.close();  
+//            fwRxj.close();  
         } catch (IOException ex) {
             ex.printStackTrace();
             System.out.println("Error raised from extended tree reconstruction!");
