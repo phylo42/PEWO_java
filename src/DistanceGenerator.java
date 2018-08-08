@@ -180,7 +180,7 @@ public class DistanceGenerator {
 
 
                     //System.out.println("mapPPLNodes:"+mapPPLNodes);
-                    //System.out.println("RAPBestPlacements:"+RAPBestPlacements);
+                    //System.out.println("RAPBestNodeIds:"+RAPBestNodeIds);
 
                     for (Iterator<String> iterator = EPABestPlacements.keySet().iterator(); iterator.hasNext();) {
                         String name = iterator.next();
@@ -269,7 +269,7 @@ public class DistanceGenerator {
 
 
                     //System.out.println("mapPPLNodes:"+mapPPLNodes);
-                    //System.out.println("RAPBestPlacements:"+RAPBestPlacements);
+                    //System.out.println("RAPBestNodeIds:"+RAPBestNodeIds);
 
                     for (Iterator<String> iterator = EPANGBestPlacements.keySet().iterator(); iterator.hasNext();) {
                         String name = iterator.next();
@@ -340,7 +340,7 @@ public class DistanceGenerator {
 
 
                     //System.out.println("mapPPLNodes:"+mapPPLNodes);
-                    //System.out.println("RAPBestPlacements:"+RAPBestPlacements);
+                    //System.out.println("RAPBestNodeIds:"+RAPBestNodeIds);
 
                     for (Iterator<String> iterator = EPABestPlacements.keySet().iterator(); iterator.hasNext();) {
                         //query itself
@@ -388,13 +388,13 @@ public class DistanceGenerator {
                     System.out.println(currentJPlaceFile.toAbsolutePath());
 
                     //k and alpha
-                    String kAlphaLabel=currentJPlaceFile.getParent().getParent().getFileName().toString(); //2 times get parent  kx_ax/logs/jplace
+                    String kAlphaLabel=currentJPlaceFile.getParent().toFile().getName(); //1 times get parent  kx_ax/*.jplace
                     String[] data =kAlphaLabel.split("_");
                     int k=Integer.parseInt(data[0].substring(1));
                     float alpha=Float.parseFloat(data[1].substring(1));
 
                     //experiment
-                    String experimentLabel=currentJPlaceFile.getParent().getParent().getParent().getFileName().toString(); //3 times get parent  Ax_nxx_xxx/kx_ax/logs/jplace
+                    String experimentLabel=currentJPlaceFile.getParent().getParent().getFileName().toString(); //2 times get parent  Ax_nxx_xxx/kx_ax/logs/jplace
                     System.out.print("experimentLabel:"+experimentLabel);
                     int pruningNumber=Integer.parseInt(experimentLabel.split("_")[0].substring(1));
                     int prunedNodeId=Integer.parseInt(experimentLabel.split("_")[1].substring(2)); //i.e. Nx
@@ -433,15 +433,27 @@ public class DistanceGenerator {
                     //System.out.println("mapPPLNodes:"+mapPPLNodes);
 
                     //retrieve best placements
-                    HashMap<String, ArrayList<Integer>> RAPBestPlacements = RAPJplace.getNodeIds();
-                    //System.out.println("RAPBestPlacements:"+RAPBestPlacements);
+                    HashMap<String, ArrayList<Integer>> RAPBestNodeIds = RAPJplace.getNodeIds();
+                    HashMap<String, ArrayList<Double>> RAPBestRatios = RAPJplace.getWeightRatios();
+                    //System.out.println("RAPBestNodeIds:"+RAPBestNodeIds);
 
                     //for each placement (json item 'p' in the jplace)
-                    for (Iterator<String> iterator = RAPBestPlacements.keySet().iterator(); iterator.hasNext();) {
+                    for (Iterator<String> iterator = RAPBestNodeIds.keySet().iterator(); iterator.hasNext();) {
                         String name = iterator.next();
                         //get best placement as the nodeId of the phylotree generated 
                         //during jplace parsing
-                        Integer jplacePhyloTreeNodeId = RAPBestPlacements.get(name).get(0);
+                        Integer jplacePhyloTreeNodeId = RAPBestNodeIds.get(name).get(0);
+                        //verify if following placements are not same value
+                        if (RAPBestRatios.get(name).size()>1) {
+                            if (RAPBestRatios.get(name).get(1)==RAPBestRatios.get(name).get(0)) {
+                                System.out.println("!!!!!!!!!!!!!!  Identical weight ratios !");
+                                System.out.println("Read: "+name);
+                                System.out.println("File: "+currentJPlaceFile.toFile().getAbsolutePath());
+                                System.exit(1);
+                            }
+                            
+                        }
+                        
                         //get its equivalent nodeId in the phylotree loaded from the 
                         //expected_placements.bin
                         Integer observedExperimentNodeId = mapRAPNodes.get(jplacePhyloTreeNodeId);

@@ -1,4 +1,5 @@
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
@@ -131,7 +132,7 @@ public class RAPPASExperimentDBInRAM {
             File fileCommandList=null;
             FileWriter fwCommandList=null;
             
-            //to ensure consistent direcory names (alpha-> _ax.xx_)
+            //to ensure consistent direcory names (omega-> _ax.xx_)
             NumberFormat nf = NumberFormat.getNumberInstance();
             nf.setCurrency(Currency.getInstance(Locale.UK));
             nf.setMinimumFractionDigits(2);
@@ -168,24 +169,38 @@ public class RAPPASExperimentDBInRAM {
                     File Ax = exp.prunedAlignmentsFiles.get(i);
                     File Tx = exp.prunedTreesFiles.get(i);
                     String experimentLabel=Ax.getName().split("\\.align$")[0];
+                    
+                    //load alpha from optimisation file
+                    File optimFile=new File(Tx.getParentFile().getAbsolutePath()+File.separator+"RAxML_info.OPTIM_"+Tx.getName());
+                    BufferedReader bwOptimFile = Files.newBufferedReader(optimFile.toPath());
+                    String line=null;
+                    float a=1.0f;
+                    while ((line=bwOptimFile.readLine())!=null) {                        
+                        if (line.startsWith("alpha: ")) {
+                            a=Float.parseFloat(line.split(" ")[1]);
+                            break;
+                        }
+                    }
+                    bwOptimFile.close();
+                    
                     //list Rx files corresponding to this Ax
                     File RxDir=new File(exp.workDir.getCanonicalPath()+File.separator+"Rx");
                     listFiles = RxDir.listFiles((File dir, String name) -> name.startsWith("R"+experimentLabel.substring(1))); //(A->R)XX_nxXXX
                     System.out.println("list"+Arrays.toString(listFiles));
                     
-                    //for all alpha
+                    //for all omega
                     for (Iterator<Float> iterator1 = allAlpha.iterator(); iterator1.hasNext();) {
-                        Float alpha = iterator1.next();
+                        Float omega = iterator1.next();
 
-                        String  kAlphaDirName= "k"+k+"_a"+nf.format(alpha);
+                        String  kAlphaDirName= "k"+k+"_a"+nf.format(omega);
                         File  DxAxKAlphaDir= new File(DxDir.getAbsolutePath()+File.separator+experimentLabel+File.separator+kAlphaDirName);
-                        System.out.println("placement for k="+k+" alpha="+nf.format(alpha)+" in "+experimentLabel+"/"+DxAxKAlphaDir.getName());
+                        System.out.println("placement for k="+k+" alpha="+nf.format(omega)+" in "+experimentLabel+"/"+DxAxKAlphaDir.getName());
 
 
                         //single, place on DB medium, then DB small
                         StringBuilder sb=new StringBuilder();
                         sb.append("/usr/bin/java ");
-                        if ( (k<=9) && (alpha>1.0) )
+                        if ( (k<=9) && (omega>1.0) )
                             sb.append("-Xmx16000m -Xms16000m ");
                         else {
                             sb.append("-Xmx44000m -Xms44000m ");
@@ -200,7 +215,7 @@ public class RAPPASExperimentDBInRAM {
 //                        sb.append("-XX:+PrintCommandLineFlags -XX:+AggressiveOpts");
 //                        sb.append("-XX:+UseParallelGC -XX:-UseAdaptiveSizePolicy -XX:+UseParallelOldGC -XX:ParallelGCThreads=1 ");
 //                        sb.append("-XX:SurvivorRatio=2 -XX:InitiatingHeapOccupancyPercent=95 ");
-//                        if ( (k<=9) && (alpha>1.0) ) {
+//                        if ( (k<=9) && (omega>1.0) ) {
 //                            sb.append("-XX:NewSize=8000m -XX:MaxNewSize=8000m ");
 //                        } else {
 //                            sb.append("-XX:NewSize=22000m -XX:MaxNewSize=22000m ");
@@ -209,7 +224,7 @@ public class RAPPASExperimentDBInRAM {
                         sb.append("-XX:+UseG1GC -XX:InitiatingHeapOccupancyPercent=95 -XX:ParallelGCThreads=1 -XX:ConcGCThreads=1 ");
                         
                         
-                        sb.append("-m b -a "+nf.format(alpha)+" -k "+new Integer(k).toString()+" ");
+                        sb.append("-p b -o "+nf.format(omega)+" -k "+new Integer(k).toString()+" ");
                         sb.append("-t "+Tx.getAbsolutePath()+" ");
                         sb.append("-r "+Ax.getAbsolutePath()+" ");
                         sb.append("-w "+DxAxKAlphaDir+" ");
@@ -229,6 +244,10 @@ public class RAPPASExperimentDBInRAM {
                         sb.append("--dbinram ");
                         sb.append("--nsbound -100000000.0 "); //skip calibration for this test.
                         sb.append("--no-reduction ");
+                        sb.append("-m GTR ");
+                        sb.append("-a "+String.valueOf(a)+" ");
+                        sb.append("-c 4 ");
+                        
                         //sb.append("--do-gap-jumps ");
                         
                         //for all query reads
