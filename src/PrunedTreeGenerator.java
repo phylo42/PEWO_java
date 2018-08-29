@@ -220,6 +220,10 @@ public class PrunedTreeGenerator {
             ///////////////////////////////////////////////////
             //load alignment
             States s=new DNAStatesShifted();
+            if (ptg.proteinAnalysis) {
+                s=new AAStates(true);
+            }
+            
             FASTAPointer fp=new FASTAPointer(ptg.alignFile, false);
             Fasta fasta=null;
             ArrayList<Fasta> fastas=new ArrayList<>();
