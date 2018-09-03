@@ -157,6 +157,9 @@ public class ARGenerator {
             ///////////////////////////////////////////////////
             //load alignment
             States s=new DNAStatesShifted();
+            if (arg.proteinAnalysis) {
+                s=new AAStates(true);
+            }
             FASTAPointer fp=new FASTAPointer(arg.alignFile, false);
             Fasta fasta=null;
             ArrayList<Fasta> fastas=new ArrayList<>();
@@ -242,7 +245,7 @@ public class ARGenerator {
         //states
         States states=new DNAStatesShifted();
         if (proteinAnalysis) {
-            states=new AAStates(false);
+            states=new AAStates(true);
         }
         
         //to ensure consistent direcory names (omega-> _ax.xx_)

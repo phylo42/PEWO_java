@@ -327,7 +327,7 @@ public class PrunedTreeGenerator {
         //states
         States states=new DNAStatesShifted();
         if (proteinAnalysis) {
-            states=new AAStates(false);
+            states=new AAStates(true);
         }
         
         //to ensure consistent direcory names (omega-> _ax.xx_)
@@ -843,7 +843,12 @@ public class PrunedTreeGenerator {
 
             StringBuilder optimCommand=new StringBuilder();
             optimCommand.append(RAXMLExecutable.getAbsolutePath());
-            optimCommand.append(" -f e -m GTRGAMMA -c 4");
+            optimCommand.append(" -f e");
+            if (states instanceof AAStates) {
+                optimCommand.append(" -m PROTGAMMAWAG -c 4 ");
+            } else {
+                optimCommand.append(" -m GTRGAMMA -c 4 ");
+            };
             optimCommand.append(" -s ");
             optimCommand.append(AxFile.getAbsolutePath());
             optimCommand.append(" -t ");
