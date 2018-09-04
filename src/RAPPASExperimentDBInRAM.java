@@ -244,7 +244,11 @@ public class RAPPASExperimentDBInRAM {
                         sb.append("--dbinram ");
                         sb.append("--nsbound -100000000.0 "); //skip calibration for this test.
                         sb.append("--no-reduction ");
-                        sb.append("-m GTR ");
+                        if (exp.proteinAnalysis) {
+                            sb.append("-m WAG ");
+                        } else   {
+                            sb.append("-m GTR ");
+                        }
                         sb.append("-a "+String.valueOf(a)+" ");
                         sb.append("-c 4 ");
                         

@@ -118,7 +118,7 @@ public class EPAExperiment {
                     StringBuilder sbRAxMLCommand=new StringBuilder();
                     sbRAxMLCommand.append(  exp.RAxMLBinary.getAbsolutePath()+" -f v -G 0.1");
                     if (exp.proteinAnalysis) {
-                        sbRAxMLCommand.append(" -m PROTGAMMALGF ");
+                        sbRAxMLCommand.append(" -m PROTGAMMAWAG ");
                     } else {
                         sbRAxMLCommand.append(" -m GTRGAMMA -c 4 ");
                     }
