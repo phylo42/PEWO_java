@@ -240,11 +240,12 @@ public class PrunedTreeGenerator {
             while((line=br.readLine())!=null) {treeString=line;}
             System.out.println("Force tree rooting (if unrooted)");
             PhyloTree tree = NewickReader.parseNewickTree2(treeString, true, false);
+
             tree.initIndexes();
             System.out.println("Original tree, # nodes: "+tree.getNodeCount());
             System.out.println("Is rooted: "+tree.isRooted());
             //tree.displayTree();
-            
+
             //test if alignment/tree labels are matching.
             //if not, exit before raising more errors later in the algo...
             List<String> alignLabels = Arrays.asList(align.getRowLabels());
@@ -258,6 +259,17 @@ public class PrunedTreeGenerator {
             }
             if (notFoundCount>0) {System.exit(1);}
             alignLabels=null;
+            
+            //also tests if some nodes got erroneously parsed because the newick
+            //tree was not valid. This results to "null" labels
+            ArrayList<Integer> nodeIdsByDFS = tree.getNodeIdsByDFS();
+            for (int id:nodeIdsByDFS) {
+                if (tree.getById(id).getLabel()==null) {
+                    System.out.println("Error encountered on tree node:"+tree.getById(id).toString());
+                    System.out.println("Please check the integrity of your newick tree.");
+                    System.exit(1);
+                }
+            }
             
             
             
