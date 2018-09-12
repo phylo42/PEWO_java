@@ -29,6 +29,7 @@ import tree.PhyloTree;
 public class JplacerLoader {
     
     PhyloTree tree=null;
+    String treeString=null;
     
     //map containing the best placement
     //these are translated from jplace {x} nodeIds to the PhyloTree nodeIds
@@ -56,7 +57,7 @@ public class JplacerLoader {
             JSONObject topLevel=(JSONObject)parser.parse(new FileReader(jplaceFile));
             
             //read tree
-            String treeString=(String)topLevel.get("tree");
+            this.treeString=(String)topLevel.get("tree");
             
             //if this is from a EPANG output, a rooted input will be unrooted 
             // ((A,B),C)root; --> (C,B,A);
@@ -154,7 +155,7 @@ public class JplacerLoader {
                     JSONArray stats = (JSONArray)pFields.get(j);
                     Long edgeJPlaceId=(Long)stats.get(edgeIdIndex);
                     //equivalent in phylotree
-                    int nodeId=tree.getJplaceMapping(edgeJPlaceId.intValue());
+                    int nodeId=tree.getJplaceMappingJPToNodeID(edgeJPlaceId.intValue());
                     nodeIdList.add(nodeId);                    
                     Object o=stats.get(weightRatioIndex);
                     try {
@@ -236,7 +237,13 @@ public class JplacerLoader {
         return tree;
     }
     
-    
+    /**
+     * return the tree as a newick string
+     * @return 
+     */
+    public String getTreeString() {
+        return treeString;
+    }
     
     
     
