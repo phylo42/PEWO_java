@@ -13,6 +13,7 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import tree.PhyloNode;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -33,10 +34,10 @@ public class ReformatJplaceForGuppy {
             
             //DEBUG
             args=new String[4];
-            args[0]="/home/benclaff/Dropbox/viromeplacer/test_datasets/KR_dist_experiment/10000_aligned.jplace";
-            args[1]="/home/benclaff/Dropbox/viromeplacer/test_datasets/KR_dist_experiment/RAxML_portableTree.10000_aligned.jplace";
-            args[2]="/home/benclaff/Dropbox/viromeplacer/test_datasets/KR_dist_experiment/epa_result.jplace";
-            args[3]="/home/benclaff/Dropbox/viromeplacer/test_datasets/KR_dist_experiment/placements_10000_last.fasta_union.jplace";
+            args[0]="/home/ben/Dropbox/viromeplacer/test_datasets/KR_dist_experiment/p4z1r36_aligned.jplace";
+            args[1]="/home/ben/Dropbox/viromeplacer/test_datasets/KR_dist_experiment/RAxML_portableTree.p4z1r36_aligned.jplace";
+            args[2]="/home/ben/Dropbox/viromeplacer/test_datasets/KR_dist_experiment/epa_result.jplace";
+            args[3]="/home/ben/Dropbox/viromeplacer/test_datasets/KR_dist_experiment/placements_p4z1r36_query_only_no_gaps.fasta_union.jplace";
            
             
             System.out.println("ARGS: pplacerFile epaFile epangFile rappasFile");
@@ -58,6 +59,7 @@ public class ReformatJplaceForGuppy {
             
             //-----------------------------------------
             //load rappas file, only update the tree
+            System.out.println("UPDATE RAPPAS -----------------------------------");
             JSONParser parser=new JSONParser();
             JSONObject topLevel=(JSONObject)parser.parse(new FileReader(rappasFile));
             //update tree
@@ -78,6 +80,7 @@ public class ReformatJplaceForGuppy {
             
             //------------------------------------------------
             //load epang file, update the tree, column order
+            System.out.println("UPDATE EPANG -----------------------------------");
             parser=new JSONParser();
             topLevel=(JSONObject)parser.parse(new FileReader(epangFile));
             //1.change metadata
@@ -101,8 +104,25 @@ public class ReformatJplaceForGuppy {
                 for (int i=0;i<pVals.size();i++) {
                     JSONArray onePLacement=(JSONArray)pVals.get(i);
                     JSONArray valsNew=new JSONArray();
+                    
+                    Double distal_length=(double)onePLacement.get(3);
+                    //check is < to the branch length (issues related to 
+                    //EPA which optimizes the tree whatever reference tree
+                    //is given to him. This make that sometimes the 
+                    //pendant_length is longer than the branch length
+                    //which cause a guppy error
+                    Long jplaceEdgeId=(long)onePLacement.get(0);
+                    int nodeId=jpl.getTree().getAllJPlaceMappingsJPToNodeID().get(jplaceEdgeId.intValue());
+                    PhyloNode node=jpl.getTree().getById(nodeId);
+                    float bl=node.getBranchLengthToAncestor();
+                    if (bl<distal_length.floatValue()) {
+                        distal_length=bl-0.00000001;
+                        if (distal_length<0) {distal_length=0.0;}
+                        System.out.print("Test: distal_len= "+onePLacement.get(3)+"(label="+node.getLabel()+") VS "+jpl.getTree().getById(nodeId));
+                        System.out.println(" ==> change distal_length="+distal_length);
+                    }
                                                          //old           new
-                    valsNew.add(onePLacement.get(3));    //edge_num      distal_length  
+                    valsNew.add(distal_length);    //edge_num      distal_length  
                     valsNew.add(onePLacement.get(0));    //likelihood    edge_num  
                     valsNew.add(onePLacement.get(2));    //like_weight_r like_weight_r  
                     valsNew.add(onePLacement.get(1));    //distal_length likelihood  
@@ -144,6 +164,7 @@ public class ReformatJplaceForGuppy {
             
             //--------------------------------------------------------------
             //load epa file, update the tree, column order (multiplicity?)
+            System.out.println("UPDATE EPA -----------------------------------");
             parser=new JSONParser();
             topLevel=(JSONObject)parser.parse(new FileReader(epaFile));
             //1.change metadata
@@ -168,10 +189,24 @@ public class ReformatJplaceForGuppy {
                 for (int i=0;i<pVals.size();i++) {
                     JSONArray onePLacement=(JSONArray)pVals.get(i);
                     JSONArray valsNew=new JSONArray();
+                    
+                    Double distal_length=(double)onePLacement.get(3);
+                    //check is < to the branch length (issues related to 
+                    //EPA which optimizes the tree whatever reference tree
+                    //is given to him. This make that sometimes the 
+                    //pendant_length is longer than the branch length
+                    //which cause a guppy error
+                    Long jplaceEdgeId=(long)onePLacement.get(0);
+                    int nodeId=jpl.getTree().getAllJPlaceMappingsJPToNodeID().get(jplaceEdgeId.intValue());
+                    float bl=jpl.getTree().getById(nodeId).getBranchLengthToAncestor();
+                    if (bl<distal_length.floatValue()) {
+                        distal_length=bl-0.000001;
+                        if (distal_length<0) {distal_length=0.0;}
+                        System.out.print("Test: distal_len= "+onePLacement.get(3)+" VS "+jpl.getTree().getById(nodeId));
+                        System.out.println(" ==> change distal_length="+distal_length);
+                    }
                                                          //old           new
-                    double d=(double)onePLacement.get(3);
-                    if (d<0.001) {d=0;}
-                    valsNew.add(d);                      //edge_num      distal_length  
+                    valsNew.add(distal_length);          //edge_num      distal_length  
                     valsNew.add(onePLacement.get(0));    //likelihood    edge_num  
                     valsNew.add(onePLacement.get(2));    //like_weight_r like_weight_r  
                     valsNew.add(onePLacement.get(1));    //distal_length likelihood  
