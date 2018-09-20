@@ -76,7 +76,7 @@ public class ReformatJplaceForGuppy {
             out=out.replaceAll("\"p\":\\[\\[","\"p\":\n\t\\[\\[");
             out=out.replaceAll("\"nm\":\\[\\[","\"nm\":\n\t\\[\\[");
             //out=out.replace("]},", "]},"); //]}
-            fwJSON = new FileWriter(rappasFile.getParentFile().getAbsolutePath()+File.separator+"re_RAPPAS.jplace");
+            fwJSON = new FileWriter("re_RAPPAS.jplace");
             fwJSON.append(out);
             fwJSON.close();
             
@@ -158,7 +158,7 @@ public class ReformatJplaceForGuppy {
             out=out.replaceAll("\\],\\[", "\\],\n\t\\[");
             out=out.replaceAll("\"p\":\\[\\[","\"p\":\n\t\\[\\[");
             out=out.replaceAll("\"nm\":\\[\\[","\"nm\":\n\t\\[\\[");
-            fwJSON = new FileWriter(epangPreplacementFile.getParentFile().getAbsolutePath()+File.separator+"re_EPANG-PREPLACEMENT.jplace");
+            fwJSON = new FileWriter("re_EPANG-PREPLACEMENT.jplace");
             fwJSON.append(out);
             fwJSON.close();
             
@@ -240,7 +240,7 @@ public class ReformatJplaceForGuppy {
             out=out.replaceAll("\\],\\[", "\\],\n\t\\[");
             out=out.replaceAll("\"p\":\\[\\[","\"p\":\n\t\\[\\[");
             out=out.replaceAll("\"nm\":\\[\\[","\"nm\":\n\t\\[\\[");
-            fwJSON = new FileWriter(epangPreplacementFile.getParentFile().getAbsolutePath()+File.separator+"re_EPANG-THOROUGH.jplace");
+            fwJSON = new FileWriter("re_EPANG-THOROUGH.jplace");
             fwJSON.append(out);
             fwJSON.close();
             
@@ -323,7 +323,7 @@ public class ReformatJplaceForGuppy {
             out=out.replaceAll("\\],\\[", "\\],\n\t\\[");
             out=out.replaceAll("\"p\":\\[\\[","\"p\":\n\t\\[\\[");
             out=out.replaceAll("\"nm\":\\[\\[","\"nm\":\n\t\\[\\[");
-            fwJSON = new FileWriter(epaFile.getParentFile().getAbsolutePath()+File.separator+"re_EPA.jplace");
+            fwJSON = new FileWriter("re_EPA.jplace");
             fwJSON.append(out);
             fwJSON.close();
             
