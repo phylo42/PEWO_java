@@ -76,7 +76,7 @@ public class EPANGExperiment {
             }  
             
             //pattern to distinguish queriesBuf from refsBuf in hmmalign results
-            String pattern="_r[0-9]+_[0-9]+_[0-9]+$";
+            String pattern="_r[0-9]+_[0-9]+_[0-9]+(_[0-9]+)?$";
             Pattern p=Pattern.compile(pattern);
 
             //load alignments trees from Ax/Tx directories
@@ -131,6 +131,7 @@ public class EPANGExperiment {
                     FASTAPointer fp=new FASTAPointer(f, false);
                     Fasta seq=null;
                     while ((seq=fp.nextSequenceAsFastaObject())!=null) {
+                        //regexp requires the end addition due to read duplicates (simulated reads experiment)
                         Matcher matcher = p.matcher(seq.getHeader());
                         if (matcher.find()) {
                             queriesBuf.append(seq.getFormatedFasta()+"\n");
