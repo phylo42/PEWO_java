@@ -19,6 +19,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import jplace.JplacerLoader;
+import jplace.JplacerLoader.Placement;
 import tree.PhyloNode;
 import tree.PhyloTree;
 
@@ -156,7 +157,7 @@ public class DistanceGenerator {
                     //System.out.println("experimentTree nodes ids by DFS:"+experimentTree.getNodeIdsByDFS());
                     //System.out.println("RAPJplace tree nodes by DFS:"+RAPJplace.getTree().getNodeIdsByDFS().stream().map((id)->RAPJplace.getTree().getById(id)).peek((id)-> System.out.println(id)).count());
                     //System.out.println("experimentTree nodes by DFS:"+experimentTree.getNodeIdsByDFS().stream().map((id)->experimentTree.getById(id)).peek((id)-> System.out.println(id)).count());
-                    //System.out.println("JPlace best placements:"+RAPJplace.getNodeIds());
+                    //System.out.println("JPlace best placements:"+RAPJplace.getPlacements());
 //                    System.out.println("POSTERIOR");
 //                    testPosteriorDFS(experimentTree.getRoot());
 //                    System.out.println("ANTERIOR");
@@ -176,17 +177,17 @@ public class DistanceGenerator {
                     //map EPA jplace to experimentTree
                     HashMap<Integer, Integer> mapEPANodes = EPAJplace.getTree().mapNodes(experimentTree);
                     //retrieve best placements
-                    HashMap<String, ArrayList<Integer>> EPABestPlacements = EPAJplace.getNodeIds();
+                    HashMap<String, ArrayList<Placement>> EPABestPlacements = EPAJplace.getPlacements();
 
 
                     //System.out.println("mapPPLNodes:"+mapPPLNodes);
-                    //System.out.println("RAPBestNodeIds:"+RAPBestNodeIds);
+                    //System.out.println("RAPBestPlacements:"+RAPBestPlacements);
 
                     for (Iterator<String> iterator = EPABestPlacements.keySet().iterator(); iterator.hasNext();) {
                         String name = iterator.next();
                         //get best placement as the nodeId of the phylotree generated 
                         //during jplace parsing
-                        Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name).get(0);
+                        Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name).get(0).getNodeId();
                         //get its equivalent nodeId in the phylotree loaded from the 
                         //expected_placements.bin
                         Integer experimentTreeNodeId = mapEPANodes.get(jplacePhyloTreeNodeId);
@@ -245,7 +246,7 @@ public class DistanceGenerator {
                     //System.out.println("experimentTree nodes ids by DFS:"+experimentTree.getNodeIdsByDFS());
                     //System.out.println("RAPJplace tree nodes by DFS:"+RAPJplace.getTree().getNodeIdsByDFS().stream().map((id)->RAPJplace.getTree().getById(id)).peek((id)-> System.out.println(id)).count());
                     //System.out.println("experimentTree nodes by DFS:"+experimentTree.getNodeIdsByDFS().stream().map((id)->experimentTree.getById(id)).peek((id)-> System.out.println(id)).count());
-                    //System.out.println("JPlace best placements:"+RAPJplace.getNodeIds());
+                    //System.out.println("JPlace best placements:"+RAPJplace.getPlacements());
 //                    System.out.println("POSTERIOR");
 //                    testPosteriorDFS(experimentTree.getRoot());
 //                    System.out.println("ANTERIOR");
@@ -265,17 +266,17 @@ public class DistanceGenerator {
                     //map EPA jplace to experimentTree
                     HashMap<Integer, Integer> mapEPANGNodes = EPANGJplace.getTree().mapNodes(experimentTree);
                     //retrieve best placements
-                    HashMap<String, ArrayList<Integer>> EPANGBestPlacements = EPANGJplace.getNodeIds();
+                    HashMap<String, ArrayList<Placement>> EPANGBestPlacements = EPANGJplace.getPlacements();
 
 
                     //System.out.println("mapPPLNodes:"+mapPPLNodes);
-                    //System.out.println("RAPBestNodeIds:"+RAPBestNodeIds);
+                    //System.out.println("RAPBestPlacements:"+RAPBestPlacements);
 
                     for (Iterator<String> iterator = EPANGBestPlacements.keySet().iterator(); iterator.hasNext();) {
                         String name = iterator.next();
                         //get best placement as the nodeId of the phylotree generated 
                         //during jplace parsing
-                        Integer jplacePhyloTreeNodeId = EPANGBestPlacements.get(name).get(0);
+                        Integer jplacePhyloTreeNodeId = EPANGBestPlacements.get(name).get(0).getNodeId();
                         //get its equivalent nodeId in the phylotree loaded from the 
                         //expected_placements.bin
                         Integer experimentTreeNodeId = mapEPANGNodes.get(jplacePhyloTreeNodeId);
@@ -336,18 +337,18 @@ public class DistanceGenerator {
                     //map EPA jplace to experimentTree
                     HashMap<Integer, Integer> mapPPLNodes = PPLJplace.getTree().mapNodes(experimentTree);
                     //retrieve best placements
-                    HashMap<String, ArrayList<Integer>> EPABestPlacements = PPLJplace.getNodeIds();
+                    HashMap<String, ArrayList<Placement>> EPABestPlacements = PPLJplace.getPlacements();
 
 
                     //System.out.println("mapPPLNodes:"+mapPPLNodes);
-                    //System.out.println("RAPBestNodeIds:"+RAPBestNodeIds);
+                    //System.out.println("RAPBestPlacements:"+RAPBestPlacements);
 
                     for (Iterator<String> iterator = EPABestPlacements.keySet().iterator(); iterator.hasNext();) {
                         //query itself
                         String name = iterator.next();
                         //get best placement as the nodeId of the phylotree generated 
                         //during jplace parsing
-                        Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name).get(0);
+                        Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name).get(0).getNodeId();
                         //get its equivalent nodeId in the phylotree loaded from the 
                         //expected_placements.bin
                         Integer experimentTreeNodeId = mapPPLNodes.get(jplacePhyloTreeNodeId);
@@ -433,19 +434,18 @@ public class DistanceGenerator {
                     //System.out.println("mapPPLNodes:"+mapPPLNodes);
 
                     //retrieve best placements
-                    HashMap<String, ArrayList<Integer>> RAPBestNodeIds = RAPJplace.getNodeIds();
-                    HashMap<String, ArrayList<Double>> RAPBestRatios = RAPJplace.getWeightRatios();
-                    //System.out.println("RAPBestNodeIds:"+RAPBestNodeIds);
+                    HashMap<String, ArrayList<Placement>> RAPBestPlacements = RAPJplace.getPlacements();
+                    //System.out.println("RAPBestPlacements:"+RAPBestPlacements);
 
                     //for each placement (json item 'p' in the jplace)
-                    for (Iterator<String> iterator = RAPBestNodeIds.keySet().iterator(); iterator.hasNext();) {
+                    for (Iterator<String> iterator = RAPBestPlacements.keySet().iterator(); iterator.hasNext();) {
                         String name = iterator.next();
                         //get best placement as the nodeId of the phylotree generated 
                         //during jplace parsing
-                        Integer jplacePhyloTreeNodeId = RAPBestNodeIds.get(name).get(0);
+                        Integer jplacePhyloTreeNodeId = RAPBestPlacements.get(name).get(0).getNodeId();
                         //verify if following placements are not same value
-                        if (RAPBestRatios.get(name).size()>1) {
-                            if (RAPBestRatios.get(name).get(1)==RAPBestRatios.get(name).get(0)) {
+                        if (RAPBestPlacements.get(name).size()>1) {
+                            if (RAPBestPlacements.get(name).get(1).getWeightRatio()==RAPBestPlacements.get(name).get(0).getWeightRatio()) {
                                 System.out.println("!!!!!!!!!!!!!!  Identical weight ratios !");
                                 System.out.println("Read: "+name);
                                 System.out.println("File: "+currentJPlaceFile.toFile().getAbsolutePath());

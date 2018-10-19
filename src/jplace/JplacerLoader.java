@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -32,13 +33,11 @@ public class JplacerLoader {
     String treeString=null;
     
     //map containing the best placement
-    //these are translated from jplace {x} nodeIds to the PhyloTree nodeIds
-    //by this loader, i.e. this map contains the nodeIds of the PhyloTree,
+    //these are translated from jplace {x} placements to the PhyloTree placements
+    //by this loader, i.e. this map contains the placements of the PhyloTree,
     //not the ids of the jplace file itself
-    //map(sequence_label)=ArrayList<JSONArray>
-    HashMap<String,ArrayList<Integer>> nodeIds=new HashMap<>();
-    HashMap<String,ArrayList<Double>> weightRatio=new HashMap<>();
-    
+    //map(sequence_label)=ArrayList<Placements>
+    HashMap<String,ArrayList<Placement>> placements=new HashMap<>();
     
     int edgeIdIndex=-1;
     int weightRatioIndex=-1;
@@ -138,7 +137,7 @@ public class JplacerLoader {
                 }
             }
             
-            //load all nodeIds
+            //load all placements
             JSONArray placements=(JSONArray)topLevel.get("placements");
             
             for (int i = 0; i < placements.size(); i++) {
@@ -148,21 +147,20 @@ public class JplacerLoader {
                 //System.out.println(pFields);
                 //best edge
                 //System.out.println(pFields.get(edgeIdIndex)+" "+pFields.get(edgeIdIndex).getClass());
-                
-                ArrayList<Integer> nodeIdList=new ArrayList<>(pFields.size());
-                ArrayList<Double> weightRatiosList=new ArrayList<>(pFields.size());
+                ArrayList<Placement> placementList=new ArrayList<>(pFields.size());
                 for (int j = 0; j < pFields.size(); j++) {
                     JSONArray stats = (JSONArray)pFields.get(j);
                     Long edgeJPlaceId=(Long)stats.get(edgeIdIndex);
+                    Placement p=new Placement();
                     //equivalent in phylotree
                     int nodeId=tree.getJplaceMappingJPToNodeID(edgeJPlaceId.intValue());
-                    nodeIdList.add(nodeId);                    
+                    p.nodeId=nodeId;                    
                     Object o=stats.get(weightRatioIndex);
                     try {
                         if (o.getClass().getName().contains("Double")) {
-                            weightRatiosList.add((Double)stats.get(weightRatioIndex));
+                            p.weightRatio=(Double)stats.get(weightRatioIndex);
                         } else if (o.getClass().getName().contains("Long")) {
-                            weightRatiosList.add(new Double(((Long)stats.get(weightRatioIndex)).doubleValue()));
+                            p.weightRatio=new Double(((Long)stats.get(weightRatioIndex)).doubleValue());
                         }
                     } catch (Exception ex) {
                         ex.printStackTrace();
@@ -170,13 +168,12 @@ public class JplacerLoader {
                             System.out.println("Weight Ratio parsed as 'null'.");
                         }
                         System.out.println("Line: "+stats.toString());
-                        weightRatiosList.add(0.0);
-                        
+                        p.weightRatio=0.0;
                     }
-                    
-                   
+                    placementList.add(p);
                 }
-                
+                //sort from highest to lowest likelihood weight ratio
+                Collections.sort(placementList);
                 
                 
                 //list of sequences associate to this placement
@@ -196,8 +193,7 @@ public class JplacerLoader {
                     } else {
                         n=(String)pNm.get(j);
                     }
-                    this.nodeIds.put(n, nodeIdList);
-                    this.weightRatio.put(n, weightRatiosList);
+                    this.placements.put(n, placementList);
                 }
                 
                 
@@ -214,19 +210,11 @@ public class JplacerLoader {
     }
 
     /**
-     * map(sequence_name)=this.phylotree_nodeIds
+     * map(sequence_name)=Placements
      * @return 
      */
-    public HashMap<String, ArrayList<Integer>> getNodeIds() {
-        return nodeIds;
-    }
-    
-    /**
-     * map(sequence_name)=weightRatios
-     * @return 
-     */
-    public HashMap<String, ArrayList<Double>> getWeightRatios() {
-        return weightRatio;
+    public HashMap<String, ArrayList<Placement>> getPlacements() {
+        return placements;
     }
 
     /**
@@ -254,7 +242,52 @@ public class JplacerLoader {
 
     }
     
-    
+    /**
+     * simple representation of the placement object
+     */
+    public class Placement implements Comparable<Placement>{
+        
+        private int nodeId;
+        private double weightRatio;
+
+        public Placement() {
+        }
+
+        public Placement(int nodeId, double weightRatio) {
+            this.nodeId = nodeId;
+            this.weightRatio = weightRatio;
+        }
+
+        public int getNodeId() {
+            return nodeId;
+        }
+
+        public double getWeightRatio() {
+            return weightRatio;
+        }
+
+        public void setNodeId(int nodeId) {
+            this.nodeId = nodeId;
+        }
+
+        public void setWeightRatio(double weightRatio) {
+            this.weightRatio = weightRatio;
+        }
+        
+        
+
+        @Override
+        public int compareTo(Placement o) {
+            if (this.weightRatio==o.weightRatio) {
+                return 0;
+            } if (this.weightRatio<o.weightRatio) {
+                return -1;
+            } else {
+                return 1;
+            }
+        }
+        
+    }
     
     
 }

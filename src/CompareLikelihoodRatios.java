@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import jplace.JplacerLoader;
+import jplace.JplacerLoader.Placement;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -42,16 +43,16 @@ public class CompareLikelihoodRatios {
         NumberFormat nf = NumberFormat.getNumberInstance();
         nf.setMaximumFractionDigits(12);
         
-        System.out.println(jlRAP.getWeightRatios().get("GLKT0ZE01BPHOX"));
+        System.out.println(jlRAP.getPlacements().get("GLKT0ZE01BPHOX"));
         
         
         int readCounter=0;
-        for (Iterator<String> seqIterator = jlRAP.getWeightRatios().keySet().iterator(); seqIterator.hasNext();) {
+        for (Iterator<String> seqIterator = jlRAP.getPlacements().keySet().iterator(); seqIterator.hasNext();) {
             String seqName = seqIterator.next();
             //System.out.println("seqName:"+seqName);
-            HashMap<String, ArrayList<Double>> RAPWeightRatios = jlRAP.getWeightRatios();
-            HashMap<String, ArrayList<Double>> EPAWeightRatios = jlEPA.getWeightRatios();
-            HashMap<String, ArrayList<Double>> PPLWeightRatios = jlPPL.getWeightRatios();
+            HashMap<String, ArrayList<Placement>> RAPWeightRatios = jlRAP.getPlacements();
+            HashMap<String, ArrayList<Placement>> EPAWeightRatios = jlEPA.getPlacements();
+            HashMap<String, ArrayList<Placement>> PPLWeightRatios = jlPPL.getPlacements();
             
 //            int placement=0;
 //            
@@ -80,13 +81,13 @@ public class CompareLikelihoodRatios {
 
 
             for (int i = 0; i < RAPWeightRatios.get(seqName).size(); i++) {
-                writer.append(readCounter+"\tRAP\t"+nf.format(RAPWeightRatios.get(seqName).get(i))+"\n");
+                writer.append(readCounter+"\tRAP\t"+nf.format(RAPWeightRatios.get(seqName).get(i).getWeightRatio())+"\n");
             }
             for (int i = 0; i < EPAWeightRatios.get(seqName).size(); i++) {
-                writer.append(readCounter+"\tEPA\t"+nf.format(EPAWeightRatios.get(seqName).get(i))+"\n");
+                writer.append(readCounter+"\tEPA\t"+nf.format(EPAWeightRatios.get(seqName).get(i).getWeightRatio())+"\n");
             }
             for (int i = 0; i < PPLWeightRatios.get(seqName).size(); i++) {
-                writer.append(readCounter+"\tPPL\t"+nf.format(PPLWeightRatios.get(seqName).get(i))+"\n");
+                writer.append(readCounter+"\tPPL\t"+nf.format(PPLWeightRatios.get(seqName).get(i).getWeightRatio())+"\n");
             }
             
             readCounter++;
