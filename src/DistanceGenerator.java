@@ -7,6 +7,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -86,6 +87,8 @@ public class DistanceGenerator {
             ArrayList<ArrayList<Integer>> expectedPlacementsNodeIds = (ArrayList<ArrayList<Integer>>)ois.readObject();
             System.out.println("Loading trees");
             ArrayList<PhyloTree> experimentTrees = (ArrayList<PhyloTree>)ois.readObject();
+            System.out.println("Loading trees trifurcations");
+            ArrayList<ArrayList<PhyloTree>> experimentTreesTrifurcations = (ArrayList<ArrayList<PhyloTree>>)ois.readObject();      
             
             System.out.println("################################################");
             System.out.println("NxIndex="+NxIndex);
@@ -190,15 +193,25 @@ public class DistanceGenerator {
                         Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name).get(0).getNodeId();
                         //get its equivalent nodeId in the phylotree loaded from the 
                         //expected_placements.bin
-                        Integer experimentTreeNodeId = mapEPANodes.get(jplacePhyloTreeNodeId);
+                        int experimentTreeNodeId = mapEPANodes.get(jplacePhyloTreeNodeId);
                         //calculate the distance between these 2 nodeIds
                         //i.e. use the DTx and D'Tx matrices
                         int nodeDistance = Dtx.getNodeDistance(prunedNodeId, experimentTreeNodeId);
                         
                         //got coordinates of placed read
                         String[] readInfos=name.split("_");
-                        int readStart=Integer.decode(readInfos[readInfos.length-2]);
-                        int readEnd=Integer.decode(readInfos[readInfos.length-1]);
+                        long readStart=0;
+                        long readEnd=0;
+                        try {
+                            readStart=Long.decode(readInfos[readInfos.length-2]);
+                        } catch (NumberFormatException ex) {
+                            ex.printStackTrace();
+                        }
+                        try  {
+                            readEnd=Long.decode(readInfos[readInfos.length-1]);
+                        } catch (NumberFormatException ex) {
+                            ex.printStackTrace();
+                        }
 
                         //System.out.println(name+" -> nodeDistance:"+nodeDistance);
                         EPAResults.put(experimentLabel+":"+name, nodeDistance);
@@ -286,8 +299,18 @@ public class DistanceGenerator {
                         
                         //got coordinates of placed read
                         String[] readInfos=name.split("_");
-                        int readStart=Integer.decode(readInfos[readInfos.length-2]);
-                        int readEnd=Integer.decode(readInfos[readInfos.length-1]);
+                        long readStart=0;
+                        long readEnd=0;
+                        try {
+                            readStart=Long.decode(readInfos[readInfos.length-2]);
+                        } catch (NumberFormatException ex) {
+                            ex.printStackTrace();
+                        }
+                        try  {
+                            readEnd=Long.decode(readInfos[readInfos.length-1]);
+                        } catch (NumberFormatException ex) {
+                            ex.printStackTrace();
+                        }
 
                         //System.out.println(name+" -> nodeDistance:"+nodeDistance);
                         EPAResults.put(experimentLabel+":"+name, nodeDistance);
@@ -359,8 +382,18 @@ public class DistanceGenerator {
                         
                         //got coordinates of placed read
                         String[] readInfos=name.split("_");
-                        int readStart=Integer.decode(readInfos[readInfos.length-2]);
-                        int readEnd=Integer.decode(readInfos[readInfos.length-1]);
+                        long readStart=0;
+                        long readEnd=0;
+                        try {
+                            readStart=Long.decode(readInfos[readInfos.length-2]);
+                        } catch (NumberFormatException ex) {
+                            ex.printStackTrace();
+                        }
+                        try  {
+                            readEnd=Long.decode(readInfos[readInfos.length-1]);
+                        } catch (NumberFormatException ex) {
+                            ex.printStackTrace();
+                        }
 
                         int nodeDistance = Dtx.getNodeDistance(prunedNodeId, experimentTreeNodeId);
 
@@ -449,9 +482,8 @@ public class DistanceGenerator {
                                 System.out.println("!!!!!!!!!!!!!!  Identical weight ratios !");
                                 System.out.println("Read: "+name);
                                 System.out.println("File: "+currentJPlaceFile.toFile().getAbsolutePath());
-                                System.exit(1);
+                                //System.exit(1);
                             }
-                            
                         }
                         
                         //get its equivalent nodeId in the phylotree loaded from the 
@@ -580,8 +612,18 @@ public class DistanceGenerator {
                         
                         //got coordinates of placed read
                         String[] readInfos=name.split("_");
-                        int readStart=Integer.decode(readInfos[readInfos.length-2]);
-                        int readEnd=Integer.decode(readInfos[readInfos.length-1]);
+                        long readStart=0;
+                        long readEnd=0;
+                        try {
+                            readStart=Long.decode(readInfos[readInfos.length-2]);
+                        } catch (NumberFormatException ex) {
+                            ex.printStackTrace();
+                        }
+                        try  {
+                            readEnd=Long.decode(readInfos[readInfos.length-1]);
+                        } catch (NumberFormatException ex) {
+                            ex.printStackTrace();
+                        }
                         
 
                         //System.out.println(name+" -> nodeDistance:"+nodeDistance);

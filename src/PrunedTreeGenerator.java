@@ -72,8 +72,9 @@ public class PrunedTreeGenerator {
     ArrayList<Integer> actuallyPrunedNodeIdsIndexes=new ArrayList<>();
     
     //list of new files
-    public HashMap<String,List<String>> readFiles=new HashMap<>(); //map of reads, map(A0_nx4_la)=[A0_nx4_la_r150,A0_nx4_la_r300]
-    public ArrayList<PhyloTree> prunedTrees=new ArrayList<>(); //list of pruned Trees
+    public HashMap<String,List<String>> readFiles = new HashMap<>(); //map of reads, map(A0_nx4_la)=[A0_nx4_la_r150,A0_nx4_la_r300]
+    public ArrayList<PhyloTree> prunedTrees = new ArrayList<>(); //list of pruned Trees
+    public ArrayList<ArrayList<PhyloTree>> prunedTreesTrifurcations = new ArrayList<>(); //list of pruned Trees
     public File fileDtx=null;
     public File fileD2tx=null;
     
@@ -90,6 +91,15 @@ public class PrunedTreeGenerator {
     
     //set if analysis is protein or DNA/RNA
     boolean proteinAnalysis=false;
+    
+    //Generate all possible trifurcations for each pruning
+    //build as many databases and placement commands.
+    //The same parameters and alignment file is used.
+    //trifurcations follow naming convention :
+    //Tx_trifuXX_nxXX_laXX
+    boolean trifurcations=false;
+    ArrayList<Integer> trifurcationsNxIndexes=null;
+    
 
     //set which minK/alpha are tested (1 directory created par combination
     int minK=5;
@@ -124,7 +134,7 @@ public class PrunedTreeGenerator {
         
     public static void main(String[] args) {
         
-        System.out.println("ARGS: workDir HMMBinariesDir RAXMLBinary align tree percentPruning(float) readSize1(int),readSize2(int),... readSD(int) [ branchPerEdge[int] kmin[int] kmax[int] kstep[int] amin[float] amax[float] astep[float] [nucl=0|prot=1] ] ");
+        System.out.println("ARGS: workDir HMMBinariesDir RAXMLBinary align tree percentPruning(float) readSize1(int),readSize2(int),... readSD(int) [ branchPerEdge[int] kmin[int] kmax[int] kstep[int] amin[float] amax[float] astep[float] [nucl=0|prot=1] [trifurcations:-1=no|1,45,48=list of Nx to test] ] ");
         
         System.out.println("Command: "+Arrays.toString(args).replaceAll(",", " "));
 
@@ -164,6 +174,15 @@ public class PrunedTreeGenerator {
                     ptg.factorIncrement=Float.parseFloat(args[14]);
                     int protein=Integer.parseInt(args[15]);
                     ptg.proteinAnalysis=(protein>0);
+                    if (!args[16].equals("-1")) {
+                        ptg.trifurcations=true;
+                        String[] trifuIndexes=args[16].split(",");
+                        ptg.trifurcationsNxIndexes=new ArrayList<>(trifuIndexes.length);
+                        for (String trifuIndexe : trifuIndexes) {
+                            ptg.trifurcationsNxIndexes.add(Integer.valueOf(trifuIndexe));
+                        }
+                        
+                    }
                 }
                 
             }
@@ -187,6 +206,8 @@ public class PrunedTreeGenerator {
             System.out.println("maxalpha:"+ptg.maxFactor);
             System.out.println("incrementalpha:"+ptg.factorIncrement);
             System.out.println("protein:"+ptg.proteinAnalysis);
+            System.out.println("trifurcations:"+ptg.trifurcations);
+            System.out.println("trifurcations Nx tested: "+ptg.trifurcationsNxIndexes);
 
             //TEST ZONE
             
@@ -389,7 +410,7 @@ public class PrunedTreeGenerator {
         //integer is the n of the node son of b_new
         File expectedPlacementsFile=new File(workDir.getAbsolutePath()+File.separator+"expected_placements.bin");
         ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream(expectedPlacementsFile),4096));
-        HashMap<Integer,Integer> NxIndex=new HashMap<>(); //map(120,i.e. nx120)=0; map(1142)=1 ; map(5454)=2 ...
+        HashMap<Integer,Integer> NxIndex=new HashMap<>(); //map(120,it.e. nx120)=0; map(1142)=1 ; map(5454)=2 ...
         ArrayList<ArrayList<Integer>> expectedPlacements=new ArrayList<>(); //tab[1]=[124,123] ; tab[2]=[1143] ...
         
         //prepare Dtx and D'tx matrices, build their headers
@@ -651,8 +672,53 @@ public class PrunedTreeGenerator {
             prunedTrees.add(treeCopy);
             System.out.println("Writing pruned tree newick");
             NewickWriter nw=new NewickWriter(TxFile);            
-            nw.writeNewickTree(treeCopy, true, true, false);  //no internal node names if PAML !
+            nw.writeNewickTree(treeCopy, true, true, false, false);  //no internal node names if PAML !
             nw.close();
+            //prepare bin data that will be used to compute NDs
+            //will stay empty if trifurcation  not asked for this Nx
+            prunedTreesTrifurcations.add(new ArrayList<>());
+            if (trifurcations && trifurcationsNxIndexes.contains(i)) {
+                //generate trifurcations
+                ArrayList<Integer> nodeIdsByDFS = treeCopy.getNodeIdsByDFS();
+                int numberTrifurcationsExpected=treeCopy.getLeavesCount()-3;
+                System.out.println("Will generate "+numberTrifurcationsExpected+" trifurcations. ");
+                int counter=0;
+                for (int it = 0; it < nodeIdsByDFS.size(); it++) {
+                    Integer nodeId = nodeIdsByDFS.get(it);
+                    if (!treeCopy.getById(nodeId).isLeaf()) {
+                        //do not reroot on original root
+                        if (treeCopy.getById(nodeId).isRoot()) {
+                            System.out.println("Skipping node of original root.");
+                            counter++;
+                            continue;
+                        }
+                        if ((counter%100)==0) {
+                            System.out.println(counter+"/"+numberTrifurcationsExpected);
+                        }
+                        //copy tree
+                        PhyloNode rootCopy2=treeCopy.getRoot().copy();
+                        PhyloTree treeCopy2=new PhyloTree(new PhyloTreeModel(rootCopy2),treeCopy.isRooted(), false);
+                        treeCopy2.initIndexes();
+                        //reroot on nodeId
+                        treeCopy2.rerootTree(treeCopy2.getById(nodeId), true);
+                        //output as newick
+                        File outname=new File(TxDir+File.separator+"T"+i+"_trifu"+counter+"_nx"+nx_nodeId+"_la"+Nx.getLabel()+".tree");
+                        BufferedWriter bwOut = Files.newBufferedWriter(outname.toPath());
+                        new NewickWriter(bwOut).writeNewickTree(treeCopy2, true, true, false, false);
+                        bwOut.close();
+                        //save tree in experiment data
+                        //it is important that this tree indexes are not reinitilaized
+                        //to keep the correct same and be able to use the same Dtx
+                        prunedTreesTrifurcations.get(prunedTreesTrifurcations.size()-1).add(treeCopy2);
+                        
+                        //discard copy
+                        //treeCopy2=null; 
+                        counter++;
+                    }
+                }
+                System.out.println("# trifurcations generated: "+counter);
+            }
+            
             //SAVE THE EXPECTED PLACEMENT 
             //which is b_new (and b_new_p if rerooting)
             //fill the integer list
@@ -902,7 +968,6 @@ public class PrunedTreeGenerator {
             File fileRelaxedTreewithBL=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_tree_withBL.tree");
 //            File fileRelaxedTreeBinary=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_tree.bin");
             
-            
             //build the extended trees first and save them in the extended_trees directory
             //these will be used in the AR below
             System.out.println("Create extended tree and save newick/fasta/phylip.");
@@ -918,6 +983,60 @@ public class PrunedTreeGenerator {
             System.out.println("treecopy2 (after ext), # leaves: "+treeCopy2.getLeavesCount());            
             System.out.println("extendedTree, # nodes: "+extendedTree.getNodeCount());
             System.out.println("extendedTree, # leaves: "+extendedTree.getLeavesCount());       
+            
+            //if trifurcations, complete with as many xtended_trees variants
+            //directory naming will be extended_trees_trifuX
+            System.out.println("Create extended_trees_trifuX");
+            if (trifurcations && trifurcationsNxIndexes.contains(i)) {
+                
+                //generate trifurcations
+                ArrayList<Integer> nodeIdsByDFS = treeCopy.getNodeIdsByDFS();
+                int numberTrifurcationsExpected=treeCopy.getLeavesCount()-3;
+                System.out.println("Will generate "+numberTrifurcationsExpected+" trifurcations. ");
+                int counter=0;
+                for (int it = 0; it < nodeIdsByDFS.size(); it++) {
+                    Integer nodeId = nodeIdsByDFS.get(it);
+                    if (!treeCopy.getById(nodeId).isLeaf()) {
+                        //do not reroot on original root
+                        if (treeCopy.getById(nodeId).isRoot()) {
+                            System.out.println("Skipping node of original root.");
+                            counter++;
+                            continue;
+                        }
+                        if ((counter%100)==0) {
+                            System.out.println(counter+"/"+numberTrifurcationsExpected);
+                        }
+                        //if (counter>20) {break;}
+        
+                        //directory of extended ancTree
+                        extendedTreeDir=new File(workDir.getAbsolutePath()+File.separator+"Dx"+File.separator+experimentAlignmentLabel+File.separator+"extended_trees_trifu"+counter);
+                        extendedTreeDir.mkdir();
+
+                        fileRelaxedAlignmentPhylip=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_align.phylip");
+                        fileRelaxedTreewithBLNoInternalNodeLabels=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_tree_withBL_withoutInterLabels.tree");
+                        fileRelaxedAlignmentFasta=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_align.fasta");
+                        fileRelaxedTreewithBL=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_tree_withBL.tree");
+        //              File fileRelaxedTreeBinary=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_tree.bin");
+
+                        //build the extended trees first and save them in the extended_trees directory
+                        //these will be used in the AR below
+                        //do a copy or else, the extended ancTree will be saved in expected_placements.bin
+                        rootCopy2=prunedTreesTrifurcations.get(prunedTreesTrifurcations.size()-1).get(counter).getRoot().copy();
+                        treeCopy2=new PhyloTree(new PhyloTreeModel(rootCopy2),prunedTreesTrifurcations.get(prunedTreesTrifurcations.size()-1).get(counter).isRooted(), false);
+                        treeCopy2.initIndexes();
+                        //copy alignment
+                        Alignment alignCopy2=alignCopy.copy();
+                        
+                        extendedTree = buildExtendedTrees(extendedTreeDir, alignCopy2, treeCopy2);
+                        
+                        extendedTree=null;
+                        treeCopy2=null;
+                        alignCopy2=null;
+                        
+                        counter++;    
+                    } 
+                }//end for 
+            }//end if trifurcation
 
             
 
@@ -929,6 +1048,34 @@ public class PrunedTreeGenerator {
             //create correpsonding directory        
             File ARDir=new File(workDir.getAbsolutePath()+File.separator+"Dx"+File.separator+experimentAlignmentLabel+File.separator+"AR");
             ARDir.mkdir();
+            
+            //if trifurcations, complete with as many xtended_trees variants
+            //directory naming will be extended_trees_trifuX
+            System.out.println("Create AR_trifuX");
+            if (trifurcations && trifurcationsNxIndexes.contains(i)) {
+                //generate trifurcations
+                ArrayList<Integer> nodeIdsByDFS = treeCopy.getNodeIdsByDFS();
+                int numberTrifurcationsExpected=treeCopy.getLeavesCount()-3;
+                System.out.println("Will generate "+numberTrifurcationsExpected+" trifurcations. ");
+                int counter=0;
+                for (int it = 0; it < nodeIdsByDFS.size(); it++) {
+                    Integer nodeId = nodeIdsByDFS.get(it);
+                    if (!treeCopy.getById(nodeId).isLeaf()) {
+                        //do not reroot on original root
+                        if (treeCopy.getById(nodeId).isRoot()) {
+                            System.out.println("Skipping node of original root.");
+                            counter++;
+                            continue;
+                        }
+                        if ((counter%100)==0) {
+                            System.out.println(counter+"/"+numberTrifurcationsExpected);
+                        }
+                        ARDir=new File(workDir.getAbsolutePath()+File.separator+"Dx"+File.separator+experimentAlignmentLabel+File.separator+"AR_trifu"+counter);
+                        ARDir.mkdir();
+                        counter++;
+                    }
+                }
+            }
             
             
             for (int current_k = minK; current_k < maxK+kIncrement; current_k+=kIncrement) {
@@ -1000,10 +1147,97 @@ public class PrunedTreeGenerator {
 //                        Files.createSymbolicLink(linkToRelaxedTreeBinary.toPath(), fileRelaxedTreeBinary.toPath());
                     
 
-                    
-                }
+                    //if trifurcations, complete with as many xtended_trees variants
+                    //directory naming will be extended_trees_trifuX
+                    System.out.println("Link extended_trees_trifuX & AR_trifuX for k"+current_k+"_a"+nf.format(current_alpha));
+                    if (trifurcations && trifurcationsNxIndexes.contains(i)) {
+                        //generate trifurcations
+                        ArrayList<Integer> nodeIdsByDFS = treeCopy.getNodeIdsByDFS();
+                        int numberTrifurcationsExpected=treeCopy.getLeavesCount()-3;
+                        System.out.println("Will generate "+numberTrifurcationsExpected+" trifurcations. ");
+                        int counter=0;
+                        for (int it = 0; it < nodeIdsByDFS.size(); it++) {
+                            Integer nodeId = nodeIdsByDFS.get(it);
+                            if (!treeCopy.getById(nodeId).isLeaf()) {
+                                //do not reroot on original root
+                                if (treeCopy.getById(nodeId).isRoot()) {
+                                    System.out.println("Skipping node of original root.");
+                                    counter++;
+                                    continue;
+                                }
+                                if ((counter%100)==0) {
+                                    System.out.println(counter+"/"+numberTrifurcationsExpected);
+                                }
+                                //if (counter>20) {break;}
+                                
+                                //do AxFile subdir AR/ in each minK/alpha directory
+                                combDirAR=new File(combDir.getAbsolutePath()+File.separator+"AR_trifu"+counter);
+                                combDirAR.mkdir();
+                                combDirExtendedTree=new File(combDir.getAbsolutePath()+File.separator+"extended_trees_trifu"+counter);
+                                combDirExtendedTree.mkdir();
 
-            }
+                                //make symbolic link to rst file which is in experiment directory (same AR for all minK/alpha combinations)
+                                originalRST=new File(ARDir.getAbsolutePath()+File.separator+"rst");
+                                originalRST.createNewFile();
+                                linkToRST=new File(combDirAR.getAbsolutePath()+File.separator+"rst");
+                                if (!linkToRST.exists())
+                                    Files.createSymbolicLink(linkToRST.toPath(), originalRST.toPath());
+
+                                //make symbolic link to phyML AR outputs files which are in experiment directory (same AR for all minK/alpha combinations)
+                                originalAncestralSeq=new File(ARDir.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_ancestral_seq.txt");
+                                originalAncestralSeq.createNewFile();
+                                linkToAncestralSeq=new File(combDirAR.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_ancestral_seq.txt");
+                                if (!linkToAncestralSeq.exists())
+                                    Files.createSymbolicLink(linkToAncestralSeq.toPath(), originalAncestralSeq.toPath());
+
+                                originalAncestralTree=new File(ARDir.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_ancestral_tree.txt");
+                                originalAncestralTree.createNewFile();
+                                linkToAncestralTree=new File(combDirAR.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_ancestral_tree.txt");
+                                if (!linkToAncestralTree.exists())
+                                    Files.createSymbolicLink(linkToAncestralTree.toPath(), originalAncestralTree.toPath());
+
+                                originalPhymlStats=new File(ARDir.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_stats.txt");
+                                originalPhymlStats.createNewFile();
+                                linkToOriginalPhymlStats=new File(combDirAR.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_stats.txt");
+                                if (!linkToOriginalPhymlStats.exists())
+                                    Files.createSymbolicLink(linkToOriginalPhymlStats.toPath(), originalPhymlStats.toPath());
+
+                                originalPhymlTree=new File(ARDir.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_tree.txt");
+                                originalPhymlTree.createNewFile();
+                                linkToOriginalPhymlTree=new File(combDirAR.getAbsolutePath()+File.separator+"extended_align.phylip_phyml_tree.txt");
+                                if (!linkToOriginalPhymlTree.exists())
+                                    Files.createSymbolicLink(linkToOriginalPhymlTree.toPath(), originalPhymlTree.toPath());
+
+                                //do AxFile subdir extended_trees/ in each minK/alpha directory
+                                //make symbolic link to correpsonding trees/alignments
+                                //which are in experiment directory (same trees/aligns for all minK/alpha combinations)
+                                //this is necessary because these trees are required by db_build
+                                linkToTree=new File(combDirExtendedTree.getAbsolutePath()+File.separator+"extended_tree_withBL.tree");
+                                linkToTreeNoInter=new File(combDirExtendedTree.getAbsolutePath()+File.separator+"extended_tree_withBL_withoutInterLabels.tree");
+                                linkToAlignmentFasta=new File(combDirExtendedTree.getAbsolutePath()+File.separator+"extended_align.fasta");
+                                linkToAlignmentPhylip=new File(combDirExtendedTree.getAbsolutePath()+File.separator+"extended_align.phylip");
+            //                    File linkToRelaxedTreeBinary=new File(combDirExtendedTree.getAbsolutePath()+File.separator+"extended_tree.bin");
+
+                                if (!linkToTree.exists())
+                                    Files.createSymbolicLink(linkToTree.toPath(), fileRelaxedTreewithBL.toPath());       
+                                if (!linkToTreeNoInter.exists())
+                                    Files.createSymbolicLink(linkToTreeNoInter.toPath(), fileRelaxedTreewithBLNoInternalNodeLabels.toPath());  
+                                if (!linkToAlignmentFasta.exists())
+                                    Files.createSymbolicLink(linkToAlignmentFasta.toPath(), fileRelaxedAlignmentFasta.toPath()); 
+                                if (!linkToAlignmentPhylip.exists())
+                                    Files.createSymbolicLink(linkToAlignmentPhylip.toPath(), fileRelaxedAlignmentPhylip.toPath());
+            //                    if (!linkToRelaxedTreeBinary.exists()) 
+            //                        Files.createSymbolicLink(linkToRelaxedTreeBinary.toPath(), fileRelaxedTreeBinary.toPath());
+                                
+                                
+                                
+                                counter++;
+                            }
+                        }
+                    }//end for trifurcation
+                
+                }//end for alpha
+            }//end for k
             System.out.println("");
             
             ////////////////////////////////////////////////////////////////////
@@ -1104,15 +1338,16 @@ public class PrunedTreeGenerator {
         Files.setPosixFilePermissions(qSubOptimCommands.toPath(), perms);
         bwOptim.close();
         
-//        for (int i = 0; i < prunedTrees.size(); i++) {
-//            PhyloTree get = prunedTrees.get(i);
-//            System.out.println(i+"th ancTree size test:"+get.getNodeCount());
+//        for (int it = 0; it < prunedTrees.size(); it++) {
+//            PhyloTree get = prunedTrees.get(it);
+//            System.out.println(it+"th ancTree size test:"+get.getNodeCount());
 //        }
         
         //after all placements, save expected placements in binary file
         oos.writeObject(NxIndex);
         oos.writeObject(expectedPlacements);
         oos.writeObject(prunedTrees);
+        oos.writeObject(prunedTreesTrifurcations);
             
         //save qsub HMM commands
         File qsubScript=new File(HMMxDir.getAbsolutePath()+File.separator+"qsub_hmm_commands");
@@ -1206,12 +1441,12 @@ public class PrunedTreeGenerator {
             //write extended trees
             //System.out.println("Write extended newick ancTree: "+fileRelaxedTreewithBL.getAbsolutePath());
             NewickWriter nw=new NewickWriter(fileRelaxedTreewithBL);
-            nw.writeNewickTree(extendedTree, true, true, false);
+            nw.writeNewickTree(extendedTree, true, true, false, false);
             nw.close();
             //write version without internal nodes labels
             //System.out.println("Write extended newick ancTree with branch length: "+fileRelaxedTreewithBLNoInternalNodeLabels.getAbsolutePath());
             nw=new NewickWriter(fileRelaxedTreewithBLNoInternalNodeLabels);
-            nw.writeNewickTree(extendedTree, true, false, false);
+            nw.writeNewickTree(extendedTree, true, false, false, false);
             nw.close();
             //save this extendedTree as AxFile binary
 //            FileOutputStream fos = new FileOutputStream(fileRelaxedTreeBinary);

@@ -124,29 +124,29 @@ public class EPANGExperiment {
                     //epa-ng require to split reference and queriesBuf from the same 
                     //multiple alignment (need same number of sites)
                     //we load this fasta, and write 2 new fastas:
-                    //one with queriesBuf, wich finishes with _r[0-9]+_[0-9]+_[0-9]+$
+                    //one with queriesBuf, which finishes with _r[0-9]+_[0-9]+_[0-9]+$
                     //one with refsBuf, which are the remaining ones
-                    StringBuilder queriesBuf=new StringBuilder();
-                    StringBuilder refsBuf=new StringBuilder();
                     FASTAPointer fp=new FASTAPointer(f, false);
-                    Fasta seq=null;
-                    while ((seq=fp.nextSequenceAsFastaObject())!=null) {
+                    StringBuffer seq=null;
+                    File queriesFile=new File(f.getAbsolutePath()+"_queries");
+                    int bufferSize=16384;
+                    BufferedWriter queriesBW = new BufferedWriter(new FileWriter(queriesFile),bufferSize);
+                    File refsFile=new File(f.getAbsolutePath()+"_refs");
+                    BufferedWriter refsBW = new BufferedWriter(new FileWriter(refsFile),bufferSize);
+                    System.out.println("Original file "+f.getName()+" , splitting in queries and refs...");
+                    int count=0;
+                    while ((seq=fp.nextSequenceAsFasta())!=null) {
                         //regexp requires the end addition due to read duplicates (simulated reads experiment)
-                        Matcher matcher = p.matcher(seq.getHeader());
+                        Matcher matcher = p.matcher(seq.substring(0, seq.indexOf("\n")));
                         if (matcher.find()) {
-                            queriesBuf.append(seq.getFormatedFasta()+"\n");
+                            queriesBW.append(seq);
                         } else {
-                            refsBuf.append(seq.getFormatedFasta()+"\n");
+                            refsBW.append(seq);
                         }
+                        count++;
                     }
                     fp.closePointer();
-                    File queriesFile=new File(f.getAbsolutePath()+"_queries");
-                    BufferedWriter queriesBW = Files.newBufferedWriter(queriesFile.toPath());
-                    queriesBW.append(queriesBuf);
                     queriesBW.close();
-                    File refsFile=new File(f.getAbsolutePath()+"_refs");
-                    BufferedWriter refsBW = Files.newBufferedWriter(refsFile.toPath());
-                    refsBW.append(refsBuf);
                     refsBW.close();
                     //build the placement commands
                     //example:  ../epa_sse3/bin/epa-ng -T 1 -t tree -s align -q queriesBuf --verbose ;
@@ -196,7 +196,8 @@ public class EPANGExperiment {
             Logger.getLogger(EPAExperiment.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
-                fw.close();
+                if (fw!=null)
+                    fw.close();
             } catch (IOException ex) {
                 Logger.getLogger(EPAExperiment.class.getName()).log(Level.SEVERE, null, ex);
             }  

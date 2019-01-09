@@ -26,9 +26,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import main_v2.ArgumentsParser_v2;
 import models.EvolModel;
-import tree.ExtendedTree;
 import tree.NewickReader;
-import tree.NewickWriter;
 import tree.PhyloNode;
 import tree.PhyloTree;
 import tree.PhyloTreeModel;
@@ -72,6 +70,14 @@ public class ARGenerator {
     
     //set if analysis is protein or DNA/RNA
     boolean proteinAnalysis=false;
+    
+    //Generate all possible trifurcations for each pruning
+    //build as many databases and placement commands.
+    //The same parameters and alignment file is used.
+    //trifurcations follow naming convention :
+    //Tx_trifuXX_nxXX_laXX
+    boolean trifurcations=false;
+    ArrayList<Integer> trifurcationsNxIndexes=null;
 
     
     //AR program
@@ -92,7 +98,7 @@ public class ARGenerator {
         
     public static void main(String[] args) {
         
-        System.out.println("ARGS: workDir ARBinaries align tree percentPruning(float) [nucl=0|prot=1] ");
+        System.out.println("ARGS: workDir ARBinaries align tree percentPruning(float) [nucl=0|prot=1] [trifurcations:-1=no|1,45,48=list of Nx to test] ");
         
         System.out.println("Command: "+Arrays.toString(args).replaceAll(",", " "));
 
@@ -113,8 +119,15 @@ public class ARGenerator {
                 if (args.length>5) {
                     int protein=Integer.parseInt(args[5]);
                     arg.proteinAnalysis=(protein>0);
+                if (!args[6].equals("-1")) {
+                        arg.trifurcations=true;
+                        String[] trifuIndexes=args[16].split(",");
+                        arg.trifurcationsNxIndexes=new ArrayList<>(trifuIndexes.length);
+                        for (String trifuIndexe : trifuIndexes) {
+                            arg.trifurcationsNxIndexes.add(Integer.valueOf(trifuIndexe));
+                        }
+                    }
                 }
-                
             }
             
             System.out.println("workDir: "+arg.workDir);
@@ -124,6 +137,8 @@ public class ARGenerator {
             //System.out.println("percentPruning: "+arg.percentPruning);
             System.out.println("pruningCount: "+arg.pruningCount);
             System.out.println("protein:"+arg.proteinAnalysis);
+            System.out.println("trifurcations:"+arg.trifurcations);
+            System.out.println("trifurcations Nx tested: "+arg.trifurcationsNxIndexes);
 
             //TEST ZONE
             
@@ -352,9 +367,6 @@ public class ARGenerator {
             //load the directory for AR based on extended ancTree  (created at previous step)
             File ARDir=new File(workDir.getAbsolutePath()+File.separator+"Dx"+File.separator+experimentAlignmentLabel+File.separator+"AR");
             
-
-            
-            
             ////////////////////////////////////////////////////////////////////
             //third, build the AR commands themselves
             
@@ -415,6 +427,8 @@ public class ARGenerator {
             //prepare corresponding AR commands (with PAML)
             bwAR.append("echo \""+ARCommand+"\" | qsub -N AR_"+DxExpPath.getName()+" -wd "+ARDir.getAbsolutePath());
             bwAR.newLine();
+            
+            
             
             
             ////////////////////////////////////////////////////////////////////
