@@ -6,12 +6,15 @@ import core.States;
 import inputs.ARProcessLauncher;
 import inputs.FASTAPointer;
 import inputs.Fasta;
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.text.NumberFormat;
@@ -95,6 +98,12 @@ public class ARGenerator {
                         PosixFilePermission.OTHERS_READ,
                         PosixFilePermission.OTHERS_EXECUTE
                     );
+    
+    //load the expected placement
+    HashMap<Integer,Integer> NxIndex =null;
+    ArrayList<PhyloTree> experimentTrees = null;
+    ArrayList<ArrayList<PhyloTree>> experimentTreesTrifurcations =null;
+    
         
     public static void main(String[] args) {
         
@@ -121,7 +130,7 @@ public class ARGenerator {
                     arg.proteinAnalysis=(protein>0);
                 if (!args[6].equals("-1")) {
                         arg.trifurcations=true;
-                        String[] trifuIndexes=args[16].split(",");
+                        String[] trifuIndexes=args[6].split(",");
                         arg.trifurcationsNxIndexes=new ArrayList<>(trifuIndexes.length);
                         for (String trifuIndexe : trifuIndexes) {
                             arg.trifurcationsNxIndexes.add(Integer.valueOf(trifuIndexe));
@@ -210,6 +219,29 @@ public class ARGenerator {
             if (notFoundCount>0) {System.exit(1);}
             alignLabels=null;
             
+            //if trifurcations are tested, load pruned trees
+            if (arg.trifurcations) {
+                File expPLaceFile=new File(arg.workDir.getAbsolutePath()+File.separator+"expected_placements.bin");
+                try {
+                    ObjectInputStream ois=null;
+                    ois = new ObjectInputStream(new BufferedInputStream(new FileInputStream(expPLaceFile),4096));
+                    System.out.println("Loading NxIndex");
+                    arg.NxIndex = (HashMap<Integer,Integer>)ois.readObject();
+                    System.out.println("Loading expected placements");
+                    ArrayList<ArrayList<Integer>> expectedPlacementsNodeIds = (ArrayList<ArrayList<Integer>>)ois.readObject();
+                    expectedPlacementsNodeIds=null;
+                    System.out.println("Loading trees");
+                    arg.experimentTrees = (ArrayList<PhyloTree>)ois.readObject();
+                    System.out.println("Loading trees trifurcations");
+                    arg.experimentTreesTrifurcations = (ArrayList<ArrayList<PhyloTree>>)ois.readObject(); 
+                } catch (ClassNotFoundException ex) {
+                    Logger.getLogger(ARGenerator.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                if (arg.experimentTreesTrifurcations==null) {
+                    System.out.println("Could not load trifurcation collection from expected_placements.bin");
+                    System.exit(1);
+                }
+            }
             
             
             //PREPARE ALL PRUNING EXPERIMENT FILES (AxFile, TxFile, Rx)
@@ -296,32 +328,16 @@ public class ARGenerator {
         //File where to save all AR qsub commands
         File qSubARCommands=new File(workDir+File.separator+"Dx"+File.separator+"qsub_AR_commands");
         BufferedWriter bwAR=new BufferedWriter(new FileWriter(qSubARCommands));
+        File qSubARCommandsTrifu=new File(workDir+File.separator+"Dx"+File.separator+"qsub_AR_commands_trifu");
+        BufferedWriter bwARTrifu=new BufferedWriter(new FileWriter(qSubARCommandsTrifu));
         
         ////////////////////////////////////////////////////////////////////
         //First, reload correct prunings
         
         for (int i = 0; i < prunedNodeIds.length; i++) {
-            Integer nx_nodeId = prunedNodeIds[i];
-            //System.out.println("--------------------------------------");
-            //System.out.println("copying ancTree and alignment before pruning...");
-            PhyloNode rootCopy=tree.getRoot().copy();
-            PhyloTree treeCopy=new PhyloTree(new PhyloTreeModel(rootCopy),tree.isRooted(), false);
-            //System.out.println("indexing ancTree ...");
-            treeCopy.initIndexes();
-            //some checkup about the original  copy
-//            System.out.println("Tree; #nodes="+treeCopy.getNodeCount());
-//            System.out.println("Tree; rooted="+treeCopy.isRooted());
-//            System.out.println("Tree; #leaves="+treeCopy.getLeavesCount());
-//            Enumeration depthFirstEnumeration = treeCopy.getRoot().depthFirstEnumeration();
-//            while(depthFirstEnumeration.hasMoreElements()) {
-//                System.out.println("Tree;  nodes="+depthFirstEnumeration.nextElement());
-//            }
-            //copying alignment
-            Alignment alignCopy=align.copy();
-            //System.out.println("Starting pruning...");
-            
+            Integer nx_nodeId = prunedNodeIds[i];            
             //current root Nx defining the pruned clade
-            PhyloNode Nx= treeCopy.getById(nx_nodeId);
+            PhyloNode Nx= tree.getById(nx_nodeId);
             System.out.println("--------------------------------------");
             System.out.println("selected Nx: x="+i+"  node:"+Nx);
             if (Nx.isRoot()) {
@@ -429,15 +445,92 @@ public class ARGenerator {
             bwAR.newLine();
             
             
+            ////////////////////////////////////////////////////////////////////
+            //third-BIS (optionnal), build the AR commands for trifurcations
+            //File where to save all AR qsub commands for trifurcations
+
+            ARCommand = new StringBuilder("");
+            
+            //if trifurcations, complete with as many AR variants
+            if (trifurcations && trifurcationsNxIndexes.contains(i)) {
+                System.out.println("creating AR commands for trifurcations using extended_trees_trifuX & AR_trifuX");
+                
+                //load correct pruned tree
+                PhyloTree prunedTree=experimentTrees.get(NxIndex.get(nx_nodeId));
+                System.out.println("pruned tree, #nodes :"+prunedTree.getNodeCount());
+                System.out.println("pruned tree, #leaves:"+prunedTree.getLeavesCount());
+                
+                //generate trifurcations
+                ArrayList<Integer> nodeIdsByDFS = prunedTree.getNodeIdsByDFS();
+                int numberTrifurcationsExpected=prunedTree.getLeavesCount()-3;
+                int counter=0;
+                for (int it = 0; it < nodeIdsByDFS.size(); it++) {
+                    Integer nodeId = nodeIdsByDFS.get(it);
+                    if (!prunedTree.getById(nodeId).isLeaf()) {
+                        
+                        //do not reroot on original root
+                        if (prunedTree.getById(nodeId).isRoot()) {
+                            System.out.println("Skipping node of original root.");
+                            continue;
+                        }
+                        if ((counter%100)==0) {
+                            System.out.println(counter+"/"+numberTrifurcationsExpected);
+                        }
+                        
+                        //load directory and files of extended ancTree (created at previous step)
+                        extendedTreeDir=new File(workDir.getAbsolutePath()+File.separator+"Dx"+File.separator+experimentAlignmentLabel+File.separator+"extended_trees_trifu"+counter);            
+                        fileRelaxedAlignmentPhylip=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_align.phylip");
+                        fileRelaxedTreewithBLNoInternalNodeLabels=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_tree_withBL_withoutInterLabels.tree");
+                        fileRelaxedAlignmentFasta=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_align.fasta");
+                        fileRelaxedTreewithBL=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_tree_withBL.tree");
+            //            File fileRelaxedTreeBinary=new File(extendedTreeDir.getAbsolutePath()+File.separator+"extended_tree.bin");  
+
+                        //load the directory for AR based on extended ancTree  (created at previous step)
+                        ARDir=new File(workDir.getAbsolutePath()+File.separator+"Dx"+File.separator+experimentAlignmentLabel+File.separator+"AR_trifu"+counter);
+                        ARCommand = new StringBuilder("");
+                        ARCommand.append( arpl.prepareAR(ARDir, fileRelaxedAlignmentPhylip, fileRelaxedTreewithBLNoInternalNodeLabels) );
+
+                        if (ARExecutablePath.getName().contains("phyml")) {
+                            //add move of the 4 files to the AR directory, as phyml write 
+                            //outputs near its input alignment file
+                            //phyml is written all data files near the input aignment file...
+                            //we move them to the AR directory
+                            //files are:
+                            // 1. alignName_phyml_ancestral_seq.txt         (used)
+                            // 2. alignName_phyml_stats.txt                 (unused)
+                            // 3. alignName_phyml_ancestral_tree.txt        (used)
+                            // 4. alignName_phyml_tree.txt                  (unused)
+                            File stats=new File(fileRelaxedAlignmentPhylip.getAbsolutePath()+"_phyml_stats.txt");
+                            File ancTree=new File(fileRelaxedAlignmentPhylip.getAbsolutePath()+"_phyml_ancestral_tree.txt");
+                            File seq=new File(fileRelaxedAlignmentPhylip.getAbsolutePath()+"_phyml_ancestral_seq.txt");
+                            File oriTree=new File(fileRelaxedAlignmentPhylip.getAbsolutePath()+"_phyml_tree.txt");
+                            //rename to these files
+                            File statsNew=new File(fileRelaxedAlignmentPhylip.getParent().replace("/extended_trees", "/AR")+File.separator+fileRelaxedAlignmentPhylip.getName()+"_phyml_stats.txt");
+                            File ancTreeNew=new File(fileRelaxedAlignmentPhylip.getParent().replace("/extended_trees", "/AR")+File.separator+fileRelaxedAlignmentPhylip.getName()+"_phyml_ancestral_tree.txt");
+                            File seqNew=new File(fileRelaxedAlignmentPhylip.getParent().replace("/extended_trees", "/AR")+File.separator+fileRelaxedAlignmentPhylip.getName()+"_phyml_ancestral_seq.txt");
+                            File oriTreeNew=new File(fileRelaxedAlignmentPhylip.getParent().replace("/extended_trees", "/AR")+File.separator+fileRelaxedAlignmentPhylip.getName()+"_phyml_tree.txt");
+                            //add the mv commands
+                            ARCommand.append(" ; mv "+stats.getAbsolutePath()+" "+statsNew.getAbsolutePath());
+                            ARCommand.append(" ; mv "+ancTree.getAbsolutePath()+" "+ancTreeNew.getAbsolutePath());
+                            ARCommand.append(" ; mv "+seq.getAbsolutePath()+" "+seqNew.getAbsolutePath());
+                            ARCommand.append(" ; mv "+oriTree.getAbsolutePath()+" "+oriTreeNew.getAbsolutePath());
+
+                        } 
+
+                        //prepare corresponding AR commands (with PAML)
+                        bwARTrifu.append("echo \""+ARCommand+"\" | qsub -N AR_"+DxExpPath.getName()+"_trifu"+counter+" -wd "+ARDir.getAbsolutePath());
+                        bwARTrifu.newLine();
+                        
+                        
+                        
+                        counter++;
+                    }
+                }//enf for DFS nodeIds
+            }//enf if trifurcation
             
             
             ////////////////////////////////////////////////////////////////////
             //closes everything
-            alignCopy=null;
-            rootCopy=null;
-            treeCopy=null;
-            //do not set to null rootCopy2/treecopy2,
-            //as it backs the extendedtree which will be serialized
             
             // a garbage call to clean a bit before next pruning
             System.gc();
@@ -448,6 +541,9 @@ public class ARGenerator {
         //give execution rights to the commands file
         Files.setPosixFilePermissions(qSubARCommands.toPath(), perms);
         bwAR.close();
+        //give execution rights to the commands file
+        Files.setPosixFilePermissions(qSubARCommandsTrifu.toPath(), perms);
+        bwARTrifu.close();
 
          
     }
