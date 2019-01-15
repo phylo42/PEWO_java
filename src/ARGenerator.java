@@ -24,6 +24,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -296,7 +297,7 @@ public class ARGenerator {
         }
         
         //to ensure consistent direcory names (omega-> _ax.xx_)
-        NumberFormat nf = NumberFormat.getNumberInstance();
+        NumberFormat nf = NumberFormat.getNumberInstance(Locale.UK);
         nf.setMinimumFractionDigits(2);
         nf.setMaximumFractionDigits(2);
         
@@ -347,8 +348,6 @@ public class ARGenerator {
                         
             File AxFile=new File(AxDir+File.separator+"A"+i+"_nx"+nx_nodeId+"_la"+Nx.getLabel()+".align");
             File TxFile=new File(TxDir+File.separator+"T"+i+"_nx"+nx_nodeId+"_la"+Nx.getLabel()+".tree");
-            
- 
 
             ////////////////////////////////////////////////////////////////////
             //Second, launch the generation AR commands
@@ -367,7 +366,6 @@ public class ARGenerator {
                 System.out.println("SKIPPED: This directory do not exists (pruning results to a 3 with less than 3 leaves !)");              
                 continue;
             }
-            
             
             System.out.println("Experiment work dir: "+DxExpPath.getAbsolutePath());
 
