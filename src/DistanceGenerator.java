@@ -75,7 +75,7 @@ public class DistanceGenerator {
                 if (Integer.parseInt(args[2])<1) { dg.doEPANG=false; }
                 if (Integer.parseInt(args[3])<1) { dg.doPPL=false; }
                 if (Integer.parseInt(args[4])<1) { dg.doRAP=false; }
-                if (!args[4].equals("-1")) {
+                if (!args[5].equals("-1")) {
                     dg.trifurcations=true;
                     String[] trifuIndexes=args[5].split(",");
                     dg.trifurcationsNxIndexes=new ArrayList<>(trifuIndexes.length);
@@ -112,9 +112,11 @@ public class DistanceGenerator {
                 PhyloTree get = experimentTrees.get(i);
                 System.out.println(i+"th tree size test:"+get.getNodeCount());
             }
-            for (int i = 0; i < dg.trifurcationsNxIndexes.size(); i++) {
-                int Nx=dg.trifurcationsNxIndexes.get(i);
-                System.out.println("Nx="+Nx+" with #trifurcationTrees="+experimentTreesTrifurcations.get(Nx).size());
+            if (dg.trifurcations) {
+                for (int i = 0; i < dg.trifurcationsNxIndexes.size(); i++) {
+                    int Nx=dg.trifurcationsNxIndexes.get(i);
+                    System.out.println("Nx="+Nx+" with #trifurcationTrees="+experimentTreesTrifurcations.get(Nx).size());
+                }
             }
             System.out.println("################################################");
             //load Dtx

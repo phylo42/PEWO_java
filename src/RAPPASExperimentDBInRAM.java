@@ -184,8 +184,7 @@ public class RAPPASExperimentDBInRAM {
             FileWriter fwCommandListTrifu=null;
             
             //to ensure consistent direcory names (omega-> _ax.xx_)
-            NumberFormat nf = NumberFormat.getNumberInstance();
-            nf.setCurrency(Currency.getInstance(Locale.UK));
+            NumberFormat nf = NumberFormat.getNumberInstance(Locale.UK);
             nf.setMinimumFractionDigits(2);
             nf.setMaximumFractionDigits(2);
             

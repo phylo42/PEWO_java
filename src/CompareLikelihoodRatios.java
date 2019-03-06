@@ -9,6 +9,7 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import jplace.JplacerLoader;
 import jplace.JplacerLoader.Placement;
 
@@ -40,7 +41,7 @@ public class CompareLikelihoodRatios {
         //writer.append("read\tidx\tRAPwr\tEPAwr\tPPLwr\n");
         
         
-        NumberFormat nf = NumberFormat.getNumberInstance();
+        NumberFormat nf = NumberFormat.getNumberInstance(Locale.UK);
         nf.setMaximumFractionDigits(12);
         
         System.out.println(jlRAP.getPlacements().get("GLKT0ZE01BPHOX"));

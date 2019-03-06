@@ -26,6 +26,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -367,7 +368,7 @@ public class PrunedTreeGenerator {
         }
         
         //to ensure consistent direcory names (omega-> _ax.xx_)
-        NumberFormat nf = NumberFormat.getNumberInstance();
+        NumberFormat nf = NumberFormat.getNumberInstance(Locale.UK);
         nf.setMinimumFractionDigits(2);
         nf.setMaximumFractionDigits(2);
         
