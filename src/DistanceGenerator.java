@@ -128,7 +128,11 @@ public class DistanceGenerator {
             Path csvResult=Paths.get(dg.workDir.getAbsolutePath(),"results.csv");
             BufferedWriter bw= Files.newBufferedWriter(csvResult);
             //header
-            bw.append("software;trifu;Ax;k;alpha;dbSize;Rx;read;readSize;node_dist;readStart;readEnd\n");
+            if (dg.trifurcations) {
+                bw.append("software;trifu;Ax;k;alpha;dbSize;Rx;read;readSize;node_dist;readStart;readEnd\n");
+            } else {
+                bw.append("software;Ax;k;alpha;dbSize;Rx;read;readSize;node_dist;readStart;readEnd\n");
+            }
             //prepare a second CSV file confronting the methods
             Path csvResult2=Paths.get(dg.workDir.getAbsolutePath(),"results2.csv");
             BufferedWriter bw2= Files.newBufferedWriter(csvResult2);
