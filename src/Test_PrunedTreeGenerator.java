@@ -31,7 +31,7 @@ public class Test_PrunedTreeGenerator {
         args[14]="0.25";
         args[15]="0";
         
-        PrunedTreeGenerator.main(args);
+        PrunedTreeGenerator_LITE.main(args);
         
     }
   

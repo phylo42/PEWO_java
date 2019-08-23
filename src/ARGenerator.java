@@ -276,9 +276,9 @@ public class ARGenerator {
             Thread.sleep(1);
             
         } catch (IOException ex) {
-            Logger.getLogger(PrunedTreeGenerator.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PrunedTreeGenerator_LITE.class.getName()).log(Level.SEVERE, null, ex);
         } catch (InterruptedException ex) {
-            Logger.getLogger(PrunedTreeGenerator.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PrunedTreeGenerator_LITE.class.getName()).log(Level.SEVERE, null, ex);
         }
         
     }
@@ -403,10 +403,10 @@ public class ARGenerator {
             ARProcessLauncher arpl=null;
             StringBuilder ARCommand = new StringBuilder("");
             if (proteinAnalysis) {
-                EvolModel model=new EvolModel(ArgumentsParser_v2.STATES_PROTEIN, "LG", a, 4);
+                EvolModel model=new EvolModel("LG", a, 4);
                 arpl=new ARProcessLauncher(ARExecutablePath,false,new AAStates(false),model,null);
             } else {
-                EvolModel model=new EvolModel(ArgumentsParser_v2.STATES_DNA, "GTR", a, 4);
+                EvolModel model=new EvolModel("GTR", a, 4);
                 arpl=new ARProcessLauncher(ARExecutablePath,false,new DNAStatesShifted(),model,null);
             }
             ARCommand.append( arpl.prepareAR(ARDir, fileRelaxedAlignmentPhylip, fileRelaxedTreewithBLNoInternalNodeLabels) );
