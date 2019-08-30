@@ -13,10 +13,7 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.ObjectOutputStream;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -30,7 +27,6 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import tree.ExtendedTree;
 import tree.NewickReader;
 import tree.NewickWriter;
 import tree.PhyloNode;
@@ -61,11 +57,11 @@ public class PrunedTreeGenerator_LITE {
     
     //workDir
     String HOME = System.getenv("HOME");
-    File workDir=new File(HOME+"/Dropbox/viromeplacer/test_datasets/accuracy_tests/6_leaves_test_set");
+    File workDir=new File(HOME);
     
     //default dataset
-    File alignFile=new File(HOME+"/Dropbox/viromeplacer/test_datasets/accuracy_tests/6_leaves_test_set.aln");
-    File treeFile=new File(HOME+"/Dropbox/viromeplacer/test_datasets/accuracy_tests/6_leaves_test_set.tree");
+    File alignFile=new File(HOME);
+    File treeFile=new File(HOME);
     
     //States
     States s=new DNAStatesShifted();
@@ -361,6 +357,7 @@ public class PrunedTreeGenerator_LITE {
         File expectedPlacementsFile=new File(workDir.getAbsolutePath()+File.separator+"expected_placements.bin");
         ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream(expectedPlacementsFile),4096));
         HashMap<Integer,Integer> NxIndex=new HashMap<>(); //map(120,it.e. nx120)=0; map(1142)=1 ; map(5454)=2 ...
+        HashMap<Integer,Integer> pruningIndex=new HashMap<>(); //map(0)=120,it.e. nx120; map(1)=1142 ; map(2)=5454 ...
         ArrayList<ArrayList<Integer>> expectedPlacements=new ArrayList<>(); //tab[1]=[124,123] ; tab[2]=[1143] ...
         
         //prepare Dtx and D'tx matrices, build their headers
@@ -460,7 +457,7 @@ public class PrunedTreeGenerator_LITE {
             actuallyPrunedNodeIdsIndexes.add(i);
             //so let's register this pruning index in the expected_placement.bin file
             NxIndex.put(nx_nodeId,actuallyPrunedNodeIdsIndexes.size()-1);
-            
+            pruningIndex.put(actuallyPrunedNodeIdsIndexes.size()-1, nx_nodeId);
             
 
             
@@ -822,6 +819,7 @@ public class PrunedTreeGenerator_LITE {
         
         //after all placements, save expected placements in binary file
         oos.writeObject(NxIndex);
+        oos.writeObject(pruningIndex);
         oos.writeObject(expectedPlacements);
         oos.writeObject(prunedTrees);
         oos.writeObject(prunedTreesTrifurcations);
@@ -864,82 +862,5 @@ public class PrunedTreeGenerator_LITE {
     }
     
  
-    /**
-     * build extendedTree from given PhyloTree and Alignment, 
-     * save it as newick, phylip, fasta and binary files in extendedTreePath
-     * @param extendedTreePath
-     * @param align
-     * @param tree 
-     */
-    private ExtendedTree buildExtendedTrees(File extendedTreePath,Alignment align, PhyloTree tree) {
-        
-        ExtendedTree extendedTree = null;
-
-        File fileRelaxedAlignmentFasta=new File(extendedTreePath.getAbsolutePath()+File.separator+"extended_align.fasta");
-        File fileRelaxedAlignmentPhylip=new File(extendedTreePath.getAbsolutePath()+File.separator+"extended_align.phylip");
-        File fileRelaxedTreewithBL=new File(extendedTreePath.getAbsolutePath()+File.separator+"extended_tree_withBL.tree");
-        File fileRelaxedTreewithBLNoInternalNodeLabels=new File(extendedTreePath.getAbsolutePath()+File.separator+"extended_tree_withBL_withoutInterLabels.tree");;
-        //File fileRelaxedTreeBinary=new File(extendedTreePath.getAbsolutePath()+File.separator+"extended_tree.bin");
-        //File idsMappings=new File(extendedTreePath.getAbsolutePath()+File.separator+"extended_tree_node_mapping_from_prunedTreeGenerator.tsv");
-        
-        try {
-            //note, we read again the ancTree to build AxFile new PhyloTree object
-            //this is necessary as its TreeModel is directly modified
-            //at instanciation of ExtendedTree
-            extendedTree=new ExtendedTree(tree,minBranchLength,branchPerEdge);                    
-            extendedTree.initIndexes(); // don'TxFile forget to reinit indexes !!!
-            ArrayList<PhyloNode> listOfNewFakeLeaves = extendedTree.getFakeLeaves();
-            //System.out.println("RelaxedTree contains "+extendedTree.getLeavesCount()+ " leaves");
-            //System.out.println("RelaxedTree contains "+extendedTree.getFakeLeaves().size()+ " FAKE_X new leaves");
-            //add new leaves to alignment
-            char[] gapSeq=new char[align.getLength()];
-            Arrays.fill(gapSeq, '-');
-            ArrayList<char[]> seqs=new ArrayList<>();
-            String[] labels=new String[listOfNewFakeLeaves.size()];
-            for (int i = 0; i < listOfNewFakeLeaves.size(); i++) {
-                labels[i]=listOfNewFakeLeaves.get(i).getLabel();
-                seqs.add(gapSeq);
-            }
-            align.addAllSequences(labels,seqs);
-            
-            //write alignment and ARTree for BrB
-            //System.out.println("Write extended alignment (fasta): "+fileRelaxedAlignmentFasta.getAbsolutePath());
-            align.writeAlignmentAsFasta(fileRelaxedAlignmentFasta);
-            //System.out.println("Write extended alignment (phylip): "+fileRelaxedAlignmentPhylip.getAbsolutePath());
-            align.writeAlignmentAsPhylip(fileRelaxedAlignmentPhylip);
-            align=null;
-            //write extended trees
-            //System.out.println("Write extended newick ancTree: "+fileRelaxedTreewithBL.getAbsolutePath());
-            NewickWriter nw=new NewickWriter(fileRelaxedTreewithBL);
-            nw.writeNewickTree(extendedTree, true, true, false, false);
-            nw.close();
-            //write version without internal nodes labels
-            //System.out.println("Write extended newick ancTree with branch length: "+fileRelaxedTreewithBLNoInternalNodeLabels.getAbsolutePath());
-            nw=new NewickWriter(fileRelaxedTreewithBLNoInternalNodeLabels);
-            nw.writeNewickTree(extendedTree, true, false, false, false);
-            nw.close();
-            //save this extendedTree as AxFile binary
-//            FileOutputStream fos = new FileOutputStream(fileRelaxedTreeBinary);
-//            ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(fos,4096));
-//            System.out.println("Storing binary version of ExtendedTree: "+fileRelaxedTreeBinary.getAbsolutePath());
-//            oos.writeObject(extendedTree);
-//            oos.close();
-            //finally, for debugging, output the ids mappings
-//            FileWriter fwRxj=new FileWriter(idsMappings);
-//            fwRxj.append("original_id\toriginal_name\textended_id\textended_name");
-//            LinkedHashMap<Integer, Integer> fakeNodeMapping = extendedTree.getFakeNodeMapping();
-//            for (Iterator<Integer> iterator = fakeNodeMapping.keySet().iterator(); iterator.hasNext();) {
-//                Integer next = iterator.next();
-//                fwRxj.append("\n");
-//                fwRxj.append(fakeNodeMapping.get(next)+"\t"+ancTree.getById(fakeNodeMapping.get(next)).getLabel()+"\t");
-//                fwRxj.append(next+"\t"+extendedTree.getById(next).getLabel());
-//            }
-//            fwRxj.close();  
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            System.out.println("Error raised from extended tree reconstruction!");
-        }
-        return extendedTree;
-    }
     
 }

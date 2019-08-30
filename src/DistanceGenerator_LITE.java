@@ -7,7 +7,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -34,11 +33,11 @@ import tree.PhyloTree;
  *
  * @author ben
  */
-public class DistanceGenerator {
+public class DistanceGenerator_LITE {
     
     //workDir
     String HOME = System.getenv("HOME");
-    File workDir=new File(HOME+"/Dropbox/viromeplacer/test_datasets/accuracy_tests/6_leaves_test_set");
+    File workDir=new File(HOME);
 
     //which component to score ?
     boolean doEPA=true;
@@ -64,7 +63,7 @@ public class DistanceGenerator {
             System.out.println("ARGS: workDir doEPA[1/0] doEPANG[0/1] doPPL[1/0] doRAP[0/1] [trifurcations:-1=no|1,45,48=list of Nx to test]");
             
             //launch
-            DistanceGenerator dg=new DistanceGenerator();
+            DistanceGenerator_LITE dg=new DistanceGenerator_LITE();
             
             //LOAD ALL EXPERIMENTS FOUND IN WORK DIR
             ///////////////////////////////////////////////////
@@ -97,8 +96,10 @@ public class DistanceGenerator {
             ois = new ObjectInputStream(new BufferedInputStream(new FileInputStream(expPLaceFile),4096));
             System.out.println("Loading NxIndex");
             HashMap<Integer,Integer> NxIndex = (HashMap<Integer,Integer>)ois.readObject();
+            System.out.println("Loading pruningIndex");
+            HashMap<Integer,Integer> pruningIndex = (HashMap<Integer,Integer>)ois.readObject();
             System.out.println("Loading expected placements");
-            ArrayList<ArrayList<Integer>> expectedPlacementsNodeIds = (ArrayList<ArrayList<Integer>>)ois.readObject();
+            ArrayList<ArrayList<Integer>> expectedPlacements = (ArrayList<ArrayList<Integer>>)ois.readObject();
             System.out.println("Loading trees");
             ArrayList<PhyloTree> experimentTrees = (ArrayList<PhyloTree>)ois.readObject();
             System.out.println("Loading trees trifurcations");
@@ -106,7 +107,8 @@ public class DistanceGenerator {
             
             System.out.println("################################################");
             System.out.println("NxIndex="+NxIndex);
-            System.out.println("expectedPlacements="+expectedPlacementsNodeIds);
+            System.out.println("pruningIndex="+NxIndex);
+            System.out.println("expectedPlacements="+expectedPlacements);
             System.out.println("prunedTrees="+experimentTrees.size());
             for (int i = 0; i < experimentTrees.size(); i++) {
                 PhyloTree get = experimentTrees.get(i);
@@ -129,20 +131,10 @@ public class DistanceGenerator {
             BufferedWriter bw= Files.newBufferedWriter(csvResult);
             //header
             if (dg.trifurcations) {
-                bw.append("software;trifu;Ax;k;alpha;dbSize;Rx;read;readSize;node_dist;readStart;readEnd\n");
+                bw.append("software;trifu;Ax;k;omega;read;readSize;node_dist;readStart;readEnd\n");
             } else {
-                bw.append("software;Ax;k;alpha;dbSize;Rx;read;readSize;node_dist;readStart;readEnd\n");
+                bw.append("software;Ax;k;omega;read;readSize;node_dist;readStart;readEnd\n");
             }
-            //prepare a second CSV file confronting the methods
-            Path csvResult2=Paths.get(dg.workDir.getAbsolutePath(),"results2.csv");
-            BufferedWriter bw2= Files.newBufferedWriter(csvResult2);
-            //header
-            bw2.append("experiment;read;k;alpha;dbSize;readSize;ndist_EPA;ndist_PPL;ndist_RAP\n");
-            //prepare a third CSV for P,B,E,L,R test
-            Path csvResult3=Paths.get(dg.workDir.getAbsolutePath(),"results3.csv");
-            BufferedWriter bw3= Files.newBufferedWriter(csvResult3);
-            //header
-            bw3.append("software;Ax;k;alpha;dbSize;Rx;read;readSize;category\n");
             
             
             
@@ -154,17 +146,8 @@ public class DistanceGenerator {
                 csvResult=Paths.get(dg.workDir.getAbsolutePath(),"results_trifu.csv");
                 bwTrifu= Files.newBufferedWriter(csvResult);
                 //header
-                bwTrifu.append("software;Ax;k;alpha;dbSize;Rx;read;readSize;node_dist;readStart;readEnd\n");
-                //prepare a second CSV file confronting the methods
-                csvResult2=Paths.get(dg.workDir.getAbsolutePath(),"results2.csv");
-                bw2Trifu= Files.newBufferedWriter(csvResult2);
-                //header
-                bw2Trifu.append("experiment;read;k;alpha;dbSize;readSize;ndist_EPA;ndist_PPL;ndist_RAP\n");
-                //prepare a third CSV for P,B,E,L,R test
-                csvResult3=Paths.get(dg.workDir.getAbsolutePath(),"results3.csv");
-                bw3Trifu= Files.newBufferedWriter(csvResult3);
-                //header
-                bw3Trifu.append("software;Ax;k;alpha;dbSize;Rx;read;readSize;category\n");
+                bwTrifu.append("software;Ax;k;omega;read;readSize;node_dist;readStart;readEnd\n");
+               
             }
             
             
@@ -173,55 +156,41 @@ public class DistanceGenerator {
             if (dg.doEPA) {
                 System.out.println("##############");
                 System.out.println("## EPA");
-                File EPAxDir=new File(dg.workDir+File.separator+"EPAx");
+                File EPAxDir=new File(dg.workDir+File.separator+"EPA");
                 //load EPA jplace results
                 List<Path> EPAJPlaceFiles = Files.find(EPAxDir.toPath(), 999, (p,b)-> b.isRegularFile() && p.getFileName().toString().endsWith(".jplace")).collect(Collectors.toList());
 
                 //for each jplace file, calculate node dist to expected placement
                 for (int i = 0; i < EPAJPlaceFiles.size(); i++) {
                     Path currentJPlaceFile = EPAJPlaceFiles.get(i);
-                    String experimentLabel=currentJPlaceFile.getParent().getFileName().toString();
                     //SECOND element in filename in pplacer ex: RAxML_portableTree. R63_nx63_la1a.HCV_1_r200 .jplace
-                    String readLabel=currentJPlaceFile.getFileName().toString().split("\\.jplace$")[0].substring(19); 
-                    String[]elts=readLabel.split("_");
-                    //ex: R63 nx63 la1a.HCV 1 r200
-                    String readSize=elts[elts.length-1].substring(1);
-                    int pruningNumber=Integer.parseInt(experimentLabel.split("_")[0].substring(1));
-                    int prunedNodeId=Integer.parseInt(experimentLabel.split("_")[1].substring(2)); //i.e. Nx
-                    int expectedPlacementIndex=NxIndex.get(prunedNodeId);
+                    String jplaceLabel=currentJPlaceFile.getFileName().toString().split("\\.jplace$")[0]; 
+                    String[]elts=jplaceLabel.split("_");
+                    String readSize=elts[1].substring(1);
+                    int pruning=Integer.valueOf(elts[0]);
                     System.out.println("--------------------------------------");
-                    System.out.println("experimentLabel:"+experimentLabel+" read:"+readLabel);
+                    System.out.println("pruning:"+pruning+" read:"+readSize);
 
-                    //load tree and expectedPlacement related to this Ax
-                    PhyloTree experimentTree=experimentTrees.get(expectedPlacementIndex);
+                    //load tree and expectedPlacements related to this Ax
+                    PhyloTree experimentTree=experimentTrees.get(pruning);
                     experimentTree.initIndexes();
-                    ArrayList<Integer> experimentPlacements=expectedPlacementsNodeIds.get(expectedPlacementIndex);
+                    ArrayList<Integer> experimentPlacements=expectedPlacements.get(pruning);
                     //System.out.println("experimentTree nodeIds:"+experimentTree.getNodeIdsByDFS());
-                    //System.out.println("experimentTree best placement(s):"+expectedPlacementNodeIds);
+                    //System.out.println("experimentTree best placement(s):"+experimentPlacements);
 
                     
                     JplacerLoader EPAJplace=new JplacerLoader(currentJPlaceFile.toFile(), false);
-                    //System.out.println("EPANGJplace tree: "+EPANGJplace.getTree());
-                    //System.out.println("experimentTree: "+experimentTree);
-                    //System.out.println("RAPJplace tree nodes ids by DFS:"+RAPJplace.getTree().getNodeIdsByDFS());
-                    //System.out.println("experimentTree nodes ids by DFS:"+experimentTree.getNodeIdsByDFS());
-                    //System.out.println("RAPJplace tree nodes by DFS:"+RAPJplace.getTree().getNodeIdsByDFS().stream().map((id)->RAPJplace.getTree().getById(id)).peek((id)-> System.out.println(id)).count());
-                    //System.out.println("experimentTree nodes by DFS:"+experimentTree.getNodeIdsByDFS().stream().map((id)->experimentTree.getById(id)).peek((id)-> System.out.println(id)).count());
-                    //System.out.println("JPlace best placements:"+RAPJplace.getPlacements());
-//                    System.out.println("POSTERIOR");
-//                    testPosteriorDFS(experimentTree.getRoot());
-//                    System.out.println("ANTERIOR");
-//                    testAnteriorDFS(experimentTree.getRoot());
                     
                     
                     if (EPAJplace.getTree().getNodeCount()!=experimentTree.getNodeCount()) {
+                        EPAJplace.getTree().displayTree();
+                        experimentTree.displayTree();
                         System.out.println("Something is wrong between the JPlace and expected_placements.bin trees.");
                         System.out.println("They do not include the same trees for the same Nx experiment.");
-                        System.exit(1);
+                        return;
+                        //System.exit(1);
                     }
-                    
-                    
-                    
+                                        
                     
                     
                     //map EPA jplace to experimentTree
@@ -241,9 +210,12 @@ public class DistanceGenerator {
                         //get its equivalent nodeId in the phylotree loaded from the 
                         //expected_placements.bin
                         int experimentTreeNodeId = mapEPANodes.get(jplacePhyloTreeNodeId);
+                        //System.out.println("experimentTreeNodeId: "+experimentTreeNodeId);
                         //calculate the distance between these 2 nodeIds
                         //i.e. use the DTx and D'Tx matrices
-                        int nodeDistance = Dtx.getNodeDistance(prunedNodeId, experimentTreeNodeId);
+                        //System.out.println("expected:"+expectedPlacements.get(pruning));
+                        
+                        int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId);
                         
                         //got coordinates of placed read
                         String[] readInfos=name.split("_");
@@ -261,61 +233,45 @@ public class DistanceGenerator {
                         }
 
                         //System.out.println(name+" -> nodeDistance:"+nodeDistance);
-                        EPAResults.put(experimentLabel+":"+name, nodeDistance);
-                        //software;Ax;k;alpha;Rx;read;node_dist
-                        bw.append("EPA;"+experimentLabel+";;;;"+readLabel+";"+name+";"+readSize+";"+nodeDistance+";"+readStart+";"+readEnd+"\n");
+                        EPAResults.put(pruning+":"+name, nodeDistance);
+                        //software;Ax;k;omega;Rx;read;node_dist
+                        bw.append("EPA;"+pruning+";;;"+name+";"+readSize+";"+nodeDistance+";"+readStart+";"+readEnd+"\n");
                     }
 
                 }
+                bw.flush();
             }    
             
             if (dg.doEPANG) {
                 System.out.println("##############");
                 System.out.println("## EPA-ng");
-                File EPANGxDir=new File(dg.workDir+File.separator+"EPANGx");
+                File EPANGxDir=new File(dg.workDir+File.separator+"EPANG");
                 //load EPA jplace results
                 List<Path> EPANGJPlaceFiles = Files.find(EPANGxDir.toPath(), 999, (p,b)-> b.isRegularFile() && p.getFileName().toString().endsWith(".jplace")).collect(Collectors.toList());
 
                 //for each jplace file, calculate node dist to expected placement
                 for (int i = 0; i < EPANGJPlaceFiles.size(); i++) {
                     Path currentJPlaceFile = EPANGJPlaceFiles.get(i);
-                    String experimentLabel=currentJPlaceFile.getParent().getFileName().toString();
                     //FIRST  element in filename in epa-ng ex: R0_nx3_la95_r150. aln. fasta_queries_epa_result. jplace
-                    String readLabel=currentJPlaceFile.getFileName().toString().split("\\.aln\\.fasta_queries_epa_result\\.jplace$")[0]; 
-                    String[]elts=readLabel.split("_");
-                    //ex: R63 nx63 la1a.HCV 1 r200
-                    String readSize=elts[elts.length-1].substring(1);
-                    int pruningNumber=Integer.parseInt(experimentLabel.split("_")[0].substring(1));
-                    int prunedNodeId=Integer.parseInt(experimentLabel.split("_")[1].substring(2)); //i.e. Nx
-                    int expectedPlacementIndex=NxIndex.get(prunedNodeId);
+                    String jplaceLabel=currentJPlaceFile.getFileName().toString().split("\\.jplace$")[0]; 
+                    String[]elts=jplaceLabel.split("_");
+                    String readSize=elts[1].substring(1);
+                    int pruning=Integer.valueOf(elts[0]);
                     System.out.println("--------------------------------------");
-                    System.out.println("experimentLabel:"+experimentLabel+" read:"+readLabel);
+                    System.out.println("pruning:"+pruning+" read:"+readSize);
 
-                    //load tree and expectedPlacement related to this Ax
-                    PhyloTree experimentTree=experimentTrees.get(expectedPlacementIndex);
+                    //load tree and expectedPlacements related to this Ax
+                    PhyloTree experimentTree=experimentTrees.get(pruning);
                     experimentTree.initIndexes();
-                    ArrayList<Integer> experimentPlacements=expectedPlacementsNodeIds.get(expectedPlacementIndex);
+                    ArrayList<Integer> experimentPlacements=expectedPlacements.get(pruning);
                     //System.out.println("experimentTree nodeIds:"+experimentTree.getNodeIdsByDFS());
                     //System.out.println("experimentTree best placement(s):"+expectedPlacementNodeIds);
 
                     
-                    JplacerLoader EPANGJplace=new JplacerLoader(currentJPlaceFile.toFile(), true);
-                    //System.out.println("EPANGJplace tree: "+EPANGJplace.getTree());
-                    //System.out.println("experimentTree: "+experimentTree);
-                    //System.out.println("RAPJplace tree nodes ids by DFS:"+RAPJplace.getTree().getNodeIdsByDFS());
-                    //System.out.println("experimentTree nodes ids by DFS:"+experimentTree.getNodeIdsByDFS());
-                    //System.out.println("RAPJplace tree nodes by DFS:"+RAPJplace.getTree().getNodeIdsByDFS().stream().map((id)->RAPJplace.getTree().getById(id)).peek((id)-> System.out.println(id)).count());
-                    //System.out.println("experimentTree nodes by DFS:"+experimentTree.getNodeIdsByDFS().stream().map((id)->experimentTree.getById(id)).peek((id)-> System.out.println(id)).count());
-                    //System.out.println("JPlace best placements:"+RAPJplace.getPlacements());
-//                    System.out.println("POSTERIOR");
-//                    testPosteriorDFS(experimentTree.getRoot());
-//                    System.out.println("ANTERIOR");
-//                    testAnteriorDFS(experimentTree.getRoot());
+                    JplacerLoader EPANGJplace=new JplacerLoader(currentJPlaceFile.toFile(), false);
 
-                    //current version of EPA-ng unroots the input tree
-                    //this needs to be corrected
-                    
-                    
+                    //version of EPA-ng prior to 0.3.4 unroots the input tree
+                    //this needs to be corrected, posterior versions, not need to correct                    
                     
                     if (EPANGJplace.getTree().getNodeCount()!=experimentTree.getNodeCount()) {
                         System.out.println("Something is wrong between the JPlace and expected_placements.bin trees.");
@@ -342,7 +298,7 @@ public class DistanceGenerator {
                         Integer experimentTreeNodeId = mapEPANGNodes.get(jplacePhyloTreeNodeId);
                         //calculate the distance between these 2 nodeIds
                         //i.e. use the DTx and D'Tx matrices
-                        int nodeDistance = Dtx.getNodeDistance(prunedNodeId, experimentTreeNodeId);
+                        int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId);
                         
                         //got coordinates of placed read
                         String[] readInfos=name.split("_");
@@ -360,12 +316,13 @@ public class DistanceGenerator {
                         }
 
                         //System.out.println(name+" -> nodeDistance:"+nodeDistance);
-                        EPAResults.put(experimentLabel+":"+name, nodeDistance);
-                        //software;Ax;k;alpha;Rx;read;node_dist
-                        bw.append("EPA-ng;"+experimentLabel+";;;;"+readLabel+";"+name+";"+readSize+";"+nodeDistance+";"+readStart+";"+readEnd+"\n");
+                        EPAResults.put(pruning+":"+name, nodeDistance);
+                        //software;Ax;k;omega;Rx;read;node_dist
+                        bw.append("EPA-ng;"+pruning+";;;"+name+";"+readSize+";"+nodeDistance+";"+readStart+";"+readEnd+"\n");
                     }
 
                 }
+                bw.flush();
             }    
             
             
@@ -373,25 +330,23 @@ public class DistanceGenerator {
                 
                 System.out.println("##############");
                 System.out.println("## PPL");
-                File PPLxDir=new File(dg.workDir+File.separator+"PPLx");
+                File PPLxDir=new File(dg.workDir+File.separator+"PPLACER");
                 //load EPA jplace results
                 List<Path> PPLJPlaceFiles = Files.find(PPLxDir.toPath(), 999, (p,b)-> b.isRegularFile() && p.getFileName().toString().endsWith(".jplace")).collect(Collectors.toList());
 
                 //for each jplace file, calculate node dist to expected placement
                 for (int i = 0; i < PPLJPlaceFiles.size(); i++) {
                     Path currentJPlaceFile = PPLJPlaceFiles.get(i);
-                    String experimentLabel=currentJPlaceFile.getParent().getFileName().toString();
-                    String readLabel=currentJPlaceFile.getFileName().toString().split("\\.aln.jplace")[0]; //FIRST element in filename in pplacer ex: R0_nx110_la_r150.aln.jplace
-                    String[]elts=readLabel.split("_");
-                    String readSize=elts[elts.length-1].substring(1);
-                    int pruningNumber=Integer.parseInt(experimentLabel.split("_")[0].substring(1));
-                    int prunedNodeId=Integer.parseInt(experimentLabel.split("_")[1].substring(2)); //i.e. Nx
-                    int expectedPlacementIndex=NxIndex.get(prunedNodeId);
-                    System.out.println("experimentLabel:"+experimentLabel+" read:"+readLabel);
+                    String jplaceLabel=currentJPlaceFile.getFileName().toString().split("\\.jplace$")[0]; 
+                    String[]elts=jplaceLabel.split("_");
+                    String readSize=elts[1].substring(1);
+                    int pruning=Integer.valueOf(elts[0]);
+                    System.out.println("--------------------------------------");
+                    System.out.println("pruning:"+pruning+" read:"+readSize);
 
-                    //load tree and expectedPlacement related to this Ax
-                    PhyloTree experimentTree=experimentTrees.get(expectedPlacementIndex);
-                    ArrayList<Integer> expectedPlacementNodeIds=expectedPlacementsNodeIds.get(expectedPlacementIndex);
+                    //load tree and expectedPlacements related to this Ax
+                    PhyloTree experimentTree=experimentTrees.get(pruning);
+                    ArrayList<Integer> expectedPlacementNodeIds=expectedPlacements.get(pruning);
                     //System.out.println("experimentTree nodeIds:"+experimentTree.getNodeIdsByDFS());
                     //System.out.println("experimentTree best placement(s):"+expectedPlacementNodeIds);
 
@@ -442,15 +397,16 @@ public class DistanceGenerator {
                             ex.printStackTrace();
                         }
 
-                        int nodeDistance = Dtx.getNodeDistance(prunedNodeId, experimentTreeNodeId);
+                        int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId);
 
                         //System.out.println(name+" -> nodeDistance:"+nodeDistance);
-                        PPLResults.put(experimentLabel+":"+name, nodeDistance);
-                        //software;Ax;k;alpha;Rx;read;node_dist
-                        bw.append("PPL;"+experimentLabel+";;;;"+readLabel+";"+name+";"+readSize+";"+nodeDistance+";"+readStart+";"+readEnd+"\n");
+                        PPLResults.put(pruning+":"+name, nodeDistance);
+                        //software;Ax;k;omega;Rx;read;node_dist
+                        bw.append("PPL;"+pruning+";;;"+name+";"+readSize+";"+nodeDistance+";"+readStart+";"+readEnd+"\n");
                     }
 
                 }
+                bw.flush();
             }
             
             if (dg.doRAP) {
@@ -458,7 +414,7 @@ public class DistanceGenerator {
             
                 System.out.println("##############");
                 System.out.println("## RAP");
-                File DxDir=new File(dg.workDir+File.separator+"Dx");
+                File DxDir=new File(dg.workDir+File.separator+"RAPPAS");
                 //load EPA jplace results
                 ArrayList<File> RAPResults=new ArrayList<>();
                 List<Path> RAPPJPlaceFiles = Files.find(DxDir.toPath(), 999, (p,b)-> b.isRegularFile() && p.getFileName().toString().endsWith(".jplace")).collect(Collectors.toList());
@@ -469,10 +425,10 @@ public class DistanceGenerator {
                     System.out.println(currentJPlaceFile.toAbsolutePath());
                     //not related to trifurcations
                     if (!currentJPlaceFile.getFileName().toString().contains("trifu_")) {
-                        buildRAPPASNodeDistances(false, currentJPlaceFile,Dtx,NxIndex,expectedPlacementsNodeIds,experimentTrees,experimentTreesTrifurcations,EPAResults,PPLResults,bw,bw2,bw3);
+                        buildRAPPASNodeDistances(false, currentJPlaceFile,Dtx,NxIndex,expectedPlacements,experimentTrees,experimentTreesTrifurcations,EPAResults,PPLResults,bw,pruningIndex);
                     } else {//related to trifurcations
                         if (dg.trifurcations) {
-                            buildRAPPASNodeDistances(true, currentJPlaceFile,Dtx,NxIndex,expectedPlacementsNodeIds,experimentTrees,experimentTreesTrifurcations,EPAResults,PPLResults,bwTrifu,bw2Trifu,bw3Trifu);
+                            buildRAPPASNodeDistances(true, currentJPlaceFile,Dtx,NxIndex,expectedPlacements,experimentTrees,experimentTreesTrifurcations,EPAResults,PPLResults,bwTrifu,pruningIndex);
                         }
                     }
                 } 
@@ -480,8 +436,6 @@ public class DistanceGenerator {
             }
             
             bw.close();
-            bw2.close();
-            bw3.close();
             
             System.out.println("DONE");
             
@@ -492,14 +446,14 @@ public class DistanceGenerator {
             
             
         } catch (FileNotFoundException ex) {
-            Logger.getLogger(DistanceGenerator.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(DistanceGenerator_LITE.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException | ClassNotFoundException ex) {
-            Logger.getLogger(DistanceGenerator.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(DistanceGenerator_LITE.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
                 ois.close();
             } catch (IOException ex) {
-                Logger.getLogger(DistanceGenerator.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(DistanceGenerator_LITE.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -555,50 +509,43 @@ public class DistanceGenerator {
                                             HashMap<String,Integer> EPAResults,
                                             HashMap<String,Integer> PPLResults,
                                             BufferedWriter bw, 
-                                            BufferedWriter bw2, 
-                                            BufferedWriter bw3
+                                            HashMap<Integer,Integer> pruningIndex
             
                                             ) throws IOException {
         
-        //k and alpha
-        String kAlphaLabel=currentJPlaceFile.getParent().toFile().getName(); //1 times get parent  kx_ax/*.jplace
-        String[] data =kAlphaLabel.split("_");
-        int k=Integer.parseInt(data[0].substring(1));
-        float alpha=Float.parseFloat(data[1].substring(1));
-
+        String jplaceLabel=currentJPlaceFile.getFileName().toString(); //2 times get parent  Ax_nxx_xxx/kx_ax/logs/jplace
+        System.out.print("jplaceLabel:"+jplaceLabel);
+        String[] data =currentJPlaceFile.toFile().getName().split("_");
+        
+        //k and omega
+        int k=Integer.parseInt(data[2].substring(1));
+        float omega=Float.parseFloat(data[3].substring(1));
         //experiment
-        String experimentLabel=currentJPlaceFile.getParent().getParent().getFileName().toString(); //2 times get parent  Ax_nxx_xxx/kx_ax/logs/jplace
-        System.out.print("experimentLabel:"+experimentLabel);
-        int pruningNumber=Integer.parseInt(experimentLabel.split("_")[0].substring(1));
-        int prunedNodeId=Integer.parseInt(experimentLabel.split("_")[1].substring(2)); //i.e. Nx
+        int pruning=Integer.parseInt(data[0]);
+        String readSize=data[1].substring(1);
         //elements in filename in rappas ex: placements_ R3_nx3_la_r900.fasta_medium .jplace
         String infos=currentJPlaceFile.getFileName().toString().split("\\.jplace$")[0].substring(11);  //11, to remove prefix "placements_"
         String readLabel=infos.split("\\.")[0];
-        //System.out.print(" read:"+readLabel);
-        //elements in filename in rappas ex: R3 nx3 la r900.fasta medium
-        String[]elts=infos.split("_");
-        String dbSize=elts[elts.length-1];
-        //System.out.print(" dbSize:"+dbSize);
-        String readSizeElts=elts[elts.length-2];
-        String readSize=readSizeElts.substring(1, readSizeElts.length()-6);
-        //System.out.println(" readSize:"+readSize);
+        System.out.println("pruning: "+pruning);
+        System.out.println("readSize: "+readSize);
+        System.out.println("k: "+k);
+        System.out.println("omega: "+omega);
 
 
         //pruning infos
-        int expectedPlacementIndex=NxIndex.get(prunedNodeId);
 
-        //load tree and expectedPlacement related to this Ax
-        PhyloTree experimentTree=experimentTrees.get(expectedPlacementIndex);
+        //load tree and expectedPlacements related to this Ax
+        PhyloTree experimentTree=experimentTrees.get(pruning);
         int trifuNumber=-1;
         if (trifurcations) {
             //trifu_X_
             trifuNumber=Integer.parseInt(currentJPlaceFile.getFileName().toString().split("_")[1]);
-            experimentTree=experimentTreesTrifurcations.get(pruningNumber).get(trifuNumber);
+            experimentTree=experimentTreesTrifurcations.get(pruning).get(trifuNumber);
             System.out.println("ND for trifu: "+trifuNumber+"  root: "+experimentTree.getRoot().toString());
         }
         
         
-        ArrayList<Integer> expectedPlacementNodeIds=expectedPlacementsNodeIds.get(expectedPlacementIndex);
+        ArrayList<Integer> expectedPlacementNodeIds=expectedPlacementsNodeIds.get(pruning);
         //System.out.println("experimentTree nodeIds:"+experimentTree.getNodeIdsByDFS());
         //System.out.println("experimentTree best placement(s):"+expectedPlacementNodeIds);
         JplacerLoader RAPJplace=new JplacerLoader(currentJPlaceFile.toFile(), false);
@@ -641,122 +588,9 @@ public class DistanceGenerator {
             //i.e. use the DTx and D'Tx matrices
             //TODO: add the Nx ids in the expected placement binary
 
-            int nodeDistance = Dtx.getNodeDistance(prunedNodeId, observedExperimentNodeId);
+            int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), observedExperimentNodeId);
 
-            //test to determine if placement shifted to ancestors
-            //to do that, we check only distances of 1 from expected
-            //placement. 4 possible results: P,B,L,R
-            //
-            //        | P(arent)
-            //        |
-            //       / \\
-            //      /   \\  <--E(xpected placement)
-            //B(rother)  /\
-            //          /  \
-            //     L(eft)   R(ight)
-            //
-            PhyloNode observedPlacement = experimentTree.getById(observedExperimentNodeId);
-            PhyloNode expectedPlacement1 = experimentTree.getById(expectedPlacementNodeIds.get(0));
-            PhyloNode expectedPlacement2 =null;
-            if (expectedPlacementNodeIds.size()>1) {
-                expectedPlacement2 = experimentTree.getById(expectedPlacementNodeIds.get(1));
-            }
-
-            boolean wasDistOne=false;
-            if (observedPlacement.getParent()!=null) {
-                //observed placement is expected placement
-                if ( expectedPlacementNodeIds.contains(observedExperimentNodeId) ) {
-                    //case E
-                    bw3.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";E\n");
-                    wasDistOne=true;
-                } else {
-
-                    //////////////
-                    //check for expectedPlacement1
-
-                    //is not a leaf ? test if P
-                    if(observedPlacement.getChildCount()>0) {
-                        Enumeration children = observedPlacement.children();
-                        while (children.hasMoreElements()) {
-                            PhyloNode nextElement = (PhyloNode)children.nextElement();
-                            //if a son of observed placement is expected placement, then observed is P                             
-                            if (nextElement.getId()==expectedPlacement1.getId()) {
-                                bw3.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";P\n");
-                                wasDistOne=true;
-                                break;
-                            }
-                        }
-                    } 
-                    // if observed is son of expected, then L or R
-                    if ( ((PhyloNode)observedPlacement.getParent()).getId()==expectedPlacement1.getId()) {
-                        if ( ((PhyloNode)observedPlacement.getParent().getChildAt(0)).getId()==observedPlacement.getId()) {
-                            bw3.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";L\n");
-                            wasDistOne=true;
-                        } else {
-                            bw3.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";R\n");
-                            wasDistOne=true;
-                        }
-                    }
-                    // test brothers
-                    if ( ((PhyloNode)observedPlacement.getParent().getChildAt(0)).getId()==expectedPlacement1.getId()) {
-                        //observed is B on the right
-                        bw3.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";BR\n");
-                        wasDistOne=true;
-                    } else if ( ((PhyloNode)observedPlacement.getParent().getChildAt(1)).getId()==expectedPlacement1.getId() ) {
-                        bw3.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";BL\n");
-                        wasDistOne=true;
-                    }
-
-                    //////////////
-                    //check for expectedPlacement2
-
-                    if (expectedPlacement2 !=null) {
-
-                        //is not a leaf ? test if P
-                        if(observedPlacement.getChildCount()>0) {
-                            Enumeration children = observedPlacement.children();
-                            while (children.hasMoreElements()) {
-                                PhyloNode nextElement = (PhyloNode)children.nextElement();
-                                //if a son of observed placement is expected placement, then observed is P                             
-                                if (nextElement.getId()==expectedPlacement2.getId()) {
-                                    bw3.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";P\n");
-                                    wasDistOne=true;
-                                    break;
-                                }
-                            }
-                        } 
-                        // if observed is son of expected, then L or R
-                        if ( ((PhyloNode)observedPlacement.getParent()).getId()==expectedPlacement2.getId()) {
-                            if ( ((PhyloNode)observedPlacement.getParent().getChildAt(0)).getId()==observedPlacement.getId()) {
-                                bw3.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";L\n");
-                                wasDistOne=true;
-                            } else {
-                                bw3.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";R\n");
-                                wasDistOne=true;
-                            }
-                        }
-                        // test brothers
-                        if ( ((PhyloNode)observedPlacement.getParent().getChildAt(0)).getId()==expectedPlacement2.getId() ) {
-                            //observed is B on the right
-                            bw3.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";BR\n");
-                            wasDistOne=true;
-                        } else if ( ((PhyloNode)observedPlacement.getParent().getChildAt(1)).getId()==expectedPlacement2.getId() ) {
-                            bw3.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";BL\n");
-                            wasDistOne=true;
-                        }
-
-                    }
-                }
-
-
-
-            } else {
-                //observed placement is root, case ignored
-            }
-
-            if(!wasDistOne) {
-                bw3.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";N\n");
-            }
+        
 
             //got coordinates of placed read
             String[] readInfos=name.split("_");
@@ -775,26 +609,14 @@ public class DistanceGenerator {
 
 
             //System.out.println(name+" -> nodeDistance:"+nodeDistance);
-            //software;Ax;k;alpha;Rx;read;node_dist
+            //software;Ax;k;omega;Rx;read;node_dist
             if (!trifurcations) {
-                bw.append("RAP;"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";"+nodeDistance+";"+readStart+";"+readEnd+"\n");
+                bw.append("RAP;"+pruning+";"+k+";"+omega+";"+name+";"+readSize+";"+nodeDistance+";"+readStart+";"+readEnd+"\n");
             } else {
-                bw.append("RAP;"+trifuNumber+";"+experimentLabel+";"+k+";"+alpha+";"+dbSize+";"+readLabel+";"+name+";"+readSize+";"+nodeDistance+";"+readStart+";"+readEnd+"\n");
+                bw.append("RAP;"+trifuNumber+";"+pruning+";"+k+";"+omega+";"+name+";"+readSize+";"+nodeDistance+";"+readStart+";"+readEnd+"\n");
             }
 
 
-            int distEPA=-1;
-            if (EPAResults.containsKey(experimentLabel+":"+name)) {
-                distEPA=EPAResults.get(experimentLabel+":"+name);
-            }
-            int distPPL=-1;
-            if (PPLResults.containsKey(experimentLabel+":"+name)) {
-                distPPL=PPLResults.get(experimentLabel+":"+name);
-            }
-            bw2.append(experimentLabel+";"+name+";"+k+";"+alpha+";"+dbSize+";"+readSize+";"+
-                        distEPA + ";" +
-                        distPPL + ";" +
-                        nodeDistance + "\n");
         }
 
         

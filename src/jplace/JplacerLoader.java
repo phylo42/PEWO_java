@@ -45,7 +45,8 @@ public class JplacerLoader {
     /**
      *
      * @param jplaceFile the value of jplaceFile
-     * @param correctEPANGUnrooting the value of correctEPANGUnrooting
+     * @param correctEPANGUnrooting epa-ng version prior to 0.3.4 did not 
+     * preserve rooting of input tree, if true, reversed to correct rooting 
      */
     public JplacerLoader(File jplaceFile, boolean correctEPANGUnrooting) {
     
@@ -233,14 +234,6 @@ public class JplacerLoader {
         return treeString;
     }
     
-    
-    
-    public static void main(String[] args) {
-        //tests
-        File test=new File("/home/ben/Dropbox/viromeplacer/test_datasets/WD_LARGE_PAML/logs/placements_mod_p4z1r36_query_only2.fasta_union.jplace");
-        JplacerLoader jl=new JplacerLoader(test, false);
-
-    }
     
     /**
      * simple representation of the placement object
