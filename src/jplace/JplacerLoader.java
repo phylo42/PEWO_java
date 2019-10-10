@@ -161,7 +161,7 @@ public class JplacerLoader {
                         if (o.getClass().getName().contains("Double")) {
                             p.weightRatio=(Double)stats.get(weightRatioIndex);
                         } else if (o.getClass().getName().contains("Long")) {
-                            p.weightRatio=new Double(((Long)stats.get(weightRatioIndex)).doubleValue());
+                            p.weightRatio=Double.valueOf((Long)stats.get(weightRatioIndex)).doubleValue();
                         }
                     } catch (Exception ex) {
                         ex.printStackTrace();

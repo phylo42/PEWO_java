@@ -34,6 +34,8 @@ import tree.PhyloTree;
 import tree.PhyloTree.Path;
 import tree.PhyloTreeModel;
 
+import javax.swing.tree.TreeNode;
+
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
@@ -52,7 +54,7 @@ import tree.PhyloTreeModel;
 public class PrunedTreeGenerator_LITE {
     
     //pseudorandom generator
-    Long seed=new Long(1);
+    Long seed=1L;
     Random rand = new Random(seed);
     
     //workDir
@@ -285,7 +287,6 @@ public class PrunedTreeGenerator_LITE {
     
     /**
      * main script
-     * @param treeCopy 
      */
     private void generatePrunedTrees(File workDir,PhyloTree tree,Alignment align) throws IOException {
         
@@ -418,11 +419,11 @@ public class PrunedTreeGenerator_LITE {
             } else {
                 //enumerate nodes in subtree
                 PhyloNode nextNx =null;
-                Enumeration<PhyloNode> DFSenum = Nx.depthFirstEnumeration();
+                Enumeration<TreeNode> DFSenum = Nx.depthFirstEnumeration();
                 //careful, ancTree topology change are reflected in the enumeration
                 //so we need to remove node AFTER this this transversal postorder
                 while (DFSenum.hasMoreElements()) {
-                    nextNx=DFSenum.nextElement();
+                    nextNx=(PhyloNode)DFSenum.nextElement();
                     //if leaf, removes
                     if (nextNx.isLeaf()) {
                         leavesRemoved.add(nextNx.getLabel());
@@ -727,7 +728,7 @@ public class PrunedTreeGenerator_LITE {
                         //z*stdev + mean = x' where z=x, and x' represents
                         //the sample from the distribution with the desired mean
                         //and standard deviation.
-                        int v_length = new Double(0.0+r+rand.nextGaussian()*Rsd).intValue();
+                        int v_length = Double.valueOf(0.0+r+rand.nextGaussian()*Rsd).intValue();
                         //System.out.println(expString+" v_length= "+v_length);
                         
                         //if generated length is smaller than sequence length
