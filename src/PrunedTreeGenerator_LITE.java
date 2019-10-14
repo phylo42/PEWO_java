@@ -94,23 +94,6 @@ public class PrunedTreeGenerator_LITE {
     //set if analysis is protein or DNA/RNA
     boolean proteinAnalysis=false;
     
-    //Generate all possible trifurcations for each pruning
-    //build as many databases and placement commands.
-    //The same parameters and alignment file is used.
-    //trifurcations follow naming convention :
-    //Tx_trifuXX_nxXX_laXX
-    boolean trifurcations=false;
-    ArrayList<Integer> trifurcationsNxIndexes=null;
-    
-
-    //set which minK/alpha are tested (1 directory created par combination
-    int minK=5;
-    int maxK=12;
-    int kIncrement=1;
-    float minFactor=1.0f;
-    float maxFactor=2.0f;
-    float factorIncrement=0.1f;
-    
     //set the critera for branch injection
     float minBranchLength=-1.0f; //basically all branches, of all length (even 0)
     int branchPerEdge=1;
@@ -131,7 +114,7 @@ public class PrunedTreeGenerator_LITE {
         
     public static void main(String[] args) {
         
-        System.out.println("ARGS: workDir align tree #prunings(int) readSize1(int),readSize2(int),... readSD(int) [ branchPerEdge[int] kmin[int] kmax[int] kstep[int] amin[float] amax[float] astep[float] [nucl=0|prot=1] ");
+        System.out.println("ARGS: workDir align tree #prunings(int) readSize1(int),readSize2(int),... readSD(int) branchPerEdge(int) [nucl=0|prot=1] ");
         
         System.out.println("Command: "+Arrays.toString(args).replaceAll(",", " "));
 
@@ -154,26 +137,10 @@ public class PrunedTreeGenerator_LITE {
                 }
                 ptg.Rsd=Integer.parseInt(args[5]);
                 //optionnals, if no args use default values
-                if (args.length>5) {
-                    ptg.branchPerEdge=Integer.parseInt(args[6]);
-                    ptg.minK=Integer.parseInt(args[7]);
-                    ptg.maxK=Integer.parseInt(args[8]);
-                    ptg.kIncrement=Integer.parseInt(args[9]);
-                    ptg.minFactor=Float.parseFloat(args[10]);
-                    ptg.maxFactor=Float.parseFloat(args[11]);
-                    ptg.factorIncrement=Float.parseFloat(args[12]);
-                    int protein=Integer.parseInt(args[13]);
-                    ptg.proteinAnalysis=(protein>0);
-                    if (!args[14].equals("-1")) {
-                        ptg.trifurcations=true;
-                        String[] trifuIndexes=args[14].split(",");
-                        ptg.trifurcationsNxIndexes=new ArrayList<>(trifuIndexes.length);
-                        for (String trifuIndexe : trifuIndexes) {
-                            ptg.trifurcationsNxIndexes.add(Integer.valueOf(trifuIndexe));
-                        }
-                        
-                    }
-                }
+                ptg.branchPerEdge=Integer.parseInt(args[6]);
+                int protein=Integer.parseInt(args[7]);
+                ptg.proteinAnalysis=(protein>0);
+
                 
             }
             
@@ -185,15 +152,7 @@ public class PrunedTreeGenerator_LITE {
             System.out.println("pruningCount: "+ptg.pruningCount);
             System.out.println("readSizes: "+Arrays.toString(ptg.R));
             System.out.println("branchPerEdge: "+ptg.branchPerEdge);
-            System.out.println("mink:"+ptg.minK);
-            System.out.println("maxk:"+ptg.maxK);
-            System.out.println("incrementk:"+ptg.kIncrement);
-            System.out.println("minalpha:"+ptg.minFactor);
-            System.out.println("maxalpha:"+ptg.maxFactor);
-            System.out.println("incrementalpha:"+ptg.factorIncrement);
             System.out.println("protein:"+ptg.proteinAnalysis);
-            System.out.println("trifurcations:"+ptg.trifurcations);
-            System.out.println("trifurcations Nx tested: "+ptg.trifurcationsNxIndexes);
 
      
             //LOAD TREE / ALIGNMENTS

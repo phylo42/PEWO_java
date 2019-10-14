@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="PEWO">
+    <output-path>$PROJECT_DIR$/out/artifacts/PEWO</output-path>
+    <root id="archive" name="PEWO.jar">
+      <element id="module-output" name="PEWO" />
+      <element id="library" level="project" name="RAPPAS" />
+    </root>
+  </artifact>
+</component>
