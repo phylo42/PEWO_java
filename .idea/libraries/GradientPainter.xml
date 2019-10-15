@@ -1,0 +1,14 @@
+<component name="libraryTable">
+  <library name="GradientPainter">
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$/../../java_libraries/GradientPainter" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="file://$PROJECT_DIR$/../../java_libraries/GradientPainter/docs" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="file://$PROJECT_DIR$/../../java_libraries/GradientPainter/src" />
+    </SOURCES>
+    <jarDirectory url="file://$PROJECT_DIR$/../../java_libraries/GradientPainter" recursive="false" />
+  </library>
+</component>

@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/PEWO.iml" filepath="$PROJECT_DIR$/PEWO.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../RAPPAS/RAPPAS.iml" filepath="$PROJECT_DIR$/../RAPPAS/RAPPAS.iml" />
     </modules>
   </component>
 </project>

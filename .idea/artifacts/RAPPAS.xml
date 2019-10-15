@@ -1,11 +1,10 @@
 <component name="ArtifactManager">
-  <artifact type="jar" build-on-make="true" name="PEWO">
-    <output-path>$PROJECT_DIR$/out/artifacts/PEWO</output-path>
-    <root id="archive" name="PEWO.jar">
-      <element id="module-output" name="PEWO" />
+  <artifact type="jar" name="RAPPAS">
+    <output-path>$PROJECT_DIR$/out/artifacts/RAPPAS</output-path>
+    <root id="archive" name="RAPPAS.jar">
       <element id="module-output" name="RAPPAS" />
-      <element id="library" level="project" name="com.google.guava:guava:21.0" />
       <element id="library" level="project" name="GradientPainter" />
+      <element id="library" level="project" name="com.google.guava:guava:21.0" />
       <element id="library" level="project" name="com.googlecode.json-simple:json-simple:1.1.1" />
       <element id="library" level="project" name="it.unimi.dsi:fastutil:8.2.2" />
       <element id="library" level="project" name="jacksum" />
