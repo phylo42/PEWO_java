@@ -48,6 +48,7 @@ public class DistanceGenerator_LITE2 {
         
         //System.setProperty("debug.verbose","1");
 
+
         ObjectInputStream ois=null;
         
         try {
@@ -56,6 +57,8 @@ public class DistanceGenerator_LITE2 {
 
             //launch
             DistanceGenerator_LITE2 dg=new DistanceGenerator_LITE2();
+
+            System.out.println(System.getProperty("java.class.path"));
 
             if(args.length>0) {
                 dg.workDir=new File(args[0]);
