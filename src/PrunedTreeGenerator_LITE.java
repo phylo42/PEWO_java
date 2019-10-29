@@ -601,7 +601,7 @@ public class PrunedTreeGenerator_LITE {
                     //if this triplet is on the path, a correction of -1
                     //has to be brought to nodeDistance (like if this added_root
                     //didn't existed)
-                    if ( shortestPath.isWithAddedRoot() && !currentNode.getLabel().equals("added_root")) {
+                    if ( shortestPath.throughAddedRoot && !currentNode.getLabel().equals("added_root")) {
                         //System.out.println("ADDED_ROOT CORRECTION !");
                         correctedNodeDistance-=1;
                     }
