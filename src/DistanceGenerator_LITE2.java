@@ -163,6 +163,7 @@ public class DistanceGenerator_LITE2 {
             paramSet.put("rstart",++columnCounter);
             paramSet.put("rend",++columnCounter);
             paramSet.put("nd",++columnCounter);
+            paramSet.put("e_nd",++columnCounter);
 
             //pattern 
             //([0-9]+)_r([0-9]+)_([a-z]+)([0-9A-Z]+)_.*_([a-z]+)\.jplace
@@ -252,7 +253,8 @@ public class DistanceGenerator_LITE2 {
                 if (!software.equals("epang")) {
                     jpl=new JplacerLoader(currentJPlaceFile.toFile(), false);
                 } else {
-                    //was false with older versions of epang, but now seems to conserve root correctly
+                    //was false with older versions of epang, but now seems to conserve root correctly,
+                    //code kept if need to reverse
                     jpl=new JplacerLoader(currentJPlaceFile.toFile(), false);
                 }
 
@@ -283,28 +285,58 @@ public class DistanceGenerator_LITE2 {
                 //iterate on placements
                 for (Iterator<String> iterator = EPABestPlacements.keySet().iterator(); iterator.hasNext();) {
                     String name = iterator.next();
-                    //get best placement as the nodeId of the phylotree generated
-                    //during jplace parsing
-                    Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name).get(0).getNodeId();
-                    //get its equivalent nodeId in the phylotree loaded from the
-                    //expected_placements.bin
-                    int experimentTreeNodeId = mapNodes.get(jplacePhyloTreeNodeId);
-                    //calculate the distance between these 2 nodeIds
-                    //i.e. use the DTx and D'Tx matrices
 
-                    int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId);
+                    int topND=-1;
+                    double topLwr=-1;
+                    ArrayList<Integer> nds=new ArrayList<>();
+                    ArrayList<Double> lwrs=new ArrayList<>();
+                    double lwrSum=0.0;
+                    //iterate on placement branches once to compute (expected_ND)*LWR sum
+                    for (int pla=0;pla<EPABestPlacements.get(name).size();pla++) {
+                        //get best placement as the nodeId of the phylotree generated
+                        //during jplace parsing
+                        Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name).get(pla).getNodeId();
+                        double lwr=EPABestPlacements.get(name).get(pla).getWeightRatio();
+                        if (pla==0) {topLwr=lwr;}
+                        //get its equivalent nodeId in the phylotree loaded from the
+                        //expected_placements.bin
+                        int experimentTreeNodeId = mapNodes.get(jplacePhyloTreeNodeId);
+                        //calculate the distance between these 2 nodeIds
+                        //i.e. use the DTx and D'Tx matrices
+                        int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId)+1;
+                        if (pla==0) {topND=nodeDistance;}
+                        lwrSum +=lwr;
+                    }
+
+                    //iterate again to compute eND
+                    double expectedNodeDistance=0.0;
+                    for (int pla=0;pla<EPABestPlacements.get(name).size();pla++) {
+                        //get best placement as the nodeId of the phylotree generated
+                        //during jplace parsing
+                        Integer jplacePhyloTreeNodeId = EPABestPlacements.get(name).get(pla).getNodeId();
+                        double lwr=EPABestPlacements.get(name).get(pla).getWeightRatio();
+                        if (pla==0) {topLwr=lwr;}
+                        //get its equivalent nodeId in the phylotree loaded from the
+                        //expected_placements.bin
+                        int experimentTreeNodeId = mapNodes.get(jplacePhyloTreeNodeId);
+                        //calculate the distance between these 2 nodeIds
+                        //i.e. use the DTx and D'Tx matrices
+                        int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId)+1;
+                        if (pla==0) {topND=nodeDistance;}
+                        expectedNodeDistance+=nodeDistance*lwr/lwrSum;
+                    }
 
                     //got coordinates of placed read
-                    String[] readInfos=name.split("_");
-                    long readStart=0;
-                    long readEnd=0;
+                    String[] readInfos = name.split("_");
+                    long readStart = 0;
+                    long readEnd = 0;
                     try {
-                        readStart=Long.decode(readInfos[readInfos.length-2]);
+                        readStart = Long.decode(readInfos[readInfos.length - 2]);
                     } catch (NumberFormatException ex) {
                         ex.printStackTrace();
                     }
-                    try  {
-                        readEnd=Long.decode(readInfos[readInfos.length-1]);
+                    try {
+                        readEnd = Long.decode(readInfos[readInfos.length - 1]);
                     } catch (NumberFormatException ex) {
                         ex.printStackTrace();
                     }
@@ -313,7 +345,8 @@ public class DistanceGenerator_LITE2 {
                     //paramsValues.put(paramSet.get("rname"),name);
                     paramsValues.put(paramSet.get("rstart"),Long.toString(readStart));
                     paramsValues.put(paramSet.get("rend"),Long.toString(readEnd));
-                    paramsValues.put(paramSet.get("nd"),Integer.toString(nodeDistance));
+                    paramsValues.put(paramSet.get("nd"),Integer.toString(topND));
+                    paramsValues.put(paramSet.get("e_nd"),Double.toString(expectedNodeDistance));
 
                     //System.out.println(paramsValues);
 

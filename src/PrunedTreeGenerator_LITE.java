@@ -564,7 +564,7 @@ public class PrunedTreeGenerator_LITE {
             //note: for very big trees, should build that as an object
             //and save it by serialization ?
         
-            nodeDistMatrix.append(Nx.getLabel()+";"+Nx.getId());
+            nodeDistMaqtrix.append(Nx.getLabel()+";"+Nx.getId());
             branchDistMatrix.append(Nx.getLabel()+";"+Nx.getId());  //TODO: this still contains errors (dist X0 to neighboor node not taken into account for node)... use nodeDist for now
             //System.out.println(Arrays.toString(prunedNodeIds));
             //System.out.println("Np_p:"+Np_p);
