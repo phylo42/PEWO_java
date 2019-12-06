@@ -341,7 +341,9 @@ public class PrunedTreeGenerator_LITE {
             
         //launch prunings for each selected Nx
         //////////////////////////////////////////////////////////////
-        
+
+        int shift=0;
+
         for (int i = 0; i < prunedNodeIds.length; i++) {
             Integer nx_nodeId = prunedNodeIds[i];
             //System.out.println("--------------------------------------");
@@ -359,9 +361,14 @@ public class PrunedTreeGenerator_LITE {
             System.out.println("--------------------------------------");
             System.out.println("selected Nx: x="+i+"  node:"+Nx);
             if (Nx.isRoot()) {
-                skippedLogBw.append("Nx="+i+"\t"+Nx.toString()+"\tIs root, so skipped.\n");
-                System.out.println("SKIPPED: this node is root (id="+nx_nodeId+"), no pruning.");
-                continue;
+                skippedLogBw.append("Nx=" + i + "\t" + Nx.toString() + "\tIs root, so skipped.\n");
+                System.out.println("SKIPPED: this node is root (id=" + nx_nodeId + "), no pruning.");
+                prunedNodeIds[i]=nodeIds[prunedNodeIds.length+shift];
+                System.out.println("Replaced id=" + nx_nodeId + " with id="+prunedNodeIds[i]);
+                nx_nodeId=prunedNodeIds[i];
+                Nx = treeCopy.getById(nx_nodeId);
+                shift++;
+                System.out.println("selected Nx: x=" + i + "  node:" + Nx);
             }
                         
             
@@ -404,7 +411,15 @@ public class PrunedTreeGenerator_LITE {
             //
             if (alignCopy.getRowLabels().length<3) {
                 skippedLogBw.append("Nx="+i+"\t"+Nx.toString()+"\tPruning resulting to less than 3 leaves, so skipped.\n");
-                System.out.println("SKIPPED: This pruning results to a 3 with less than 3 leaves !  --> Nx skipped");              
+                System.out.println("SKIPPED: This pruning results to a 3 with less than 3 leaves !  --> Nx skipped");
+                if (nodeIds.length==(prunedNodeIds.length+shift)) {
+                    System.out.println("No more pruning can be computed with the selected criteria.");
+                    break;
+                }
+                prunedNodeIds[i]=nodeIds[prunedNodeIds.length+shift];
+                System.out.println("Replaced id=" + nx_nodeId + " with id="+prunedNodeIds[i]);
+                i-=1;
+                shift++;
                 continue;
             }
             System.out.println("LeavesRemoved: "+leavesRemoved.size());
@@ -564,7 +579,7 @@ public class PrunedTreeGenerator_LITE {
             //note: for very big trees, should build that as an object
             //and save it by serialization ?
         
-            nodeDistMaqtrix.append(Nx.getLabel()+";"+Nx.getId());
+            nodeDistMatrix.append(Nx.getLabel()+";"+Nx.getId());
             branchDistMatrix.append(Nx.getLabel()+";"+Nx.getId());  //TODO: this still contains errors (dist X0 to neighboor node not taken into account for node)... use nodeDist for now
             //System.out.println(Arrays.toString(prunedNodeIds));
             //System.out.println("Np_p:"+Np_p);
