@@ -1,4 +1,5 @@
-nbproject/private*
-build/*
-out/
-dist/
+nbproject/private
+build
+out
+dist
+lib

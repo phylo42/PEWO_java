@@ -1,0 +1,71 @@
+<project name="PEWO" default="dist" basedir=".">
+  <description>
+    PEWO: Placement Evaluation WOrkflow
+  </description>
+
+  <!-- directories setup -->  
+  <property name="src" location="./src"/>
+  <property name="build" location="./build"/>
+  <property name="dist" location="./dist"/>
+  <property name="lib" location="./lib"/>
+
+  <target name="init">
+    <tstamp/>
+    <mkdir dir="${build}"/>
+  </target>
+
+  <!-- compilation confifiguration -->
+  <presetdef name="javac">
+    <javac includeantruntime="false" />
+  </presetdef>
+
+  <!-- compile dependencies -->
+  <target name="libraries" depends="init">
+    <ant antfile="./lib/RAPPAS/build-cli.xml" target="clean" inheritAll="false"/>
+    <ant antfile="./lib/RAPPAS/build-cli.xml" target="dist" inheritAll="false"/>
+    <move file="./lib/RAPPAS/dist/RAPPAS.jar" tofile="./lib/RAPPAS.jar"/>
+  </target>
+
+  <!-- compile PEWO_java itself -->
+
+  <path id="project.classpath">
+    <fileset dir="lib">
+    <include name="**/*.jar"/>
+    </fileset>
+  </path>
+
+  <target name="compile" depends="libraries" >
+    <javac srcdir="${src}" destdir="${build}" optimize="on" source="1.8" target="1.8">
+       <classpath refid="project.classpath" />
+    </javac>
+  </target>
+  
+  <!-- jar package -->
+  <target name="dist" depends="compile" >
+     <mkdir dir="${dist}"/>
+     <jar destfile="${dist}/PEWO.jar" basedir="${build}">
+       <zipgroupfileset dir="${lib}" includes="*.jar" />
+       <manifest>
+         <attribute name="PEWO" value="main"/>
+	 <attribute name="Main-Class" value="Default"/>
+       </manifest>
+     </jar>
+  </target>
+
+  <!-- build javadoc -->
+  <target name="javadoc">
+    <javadoc sourcepath="src" destdir="doc" >
+      <fileset dir="src" defaultexcludes="yes">
+        <include name="**/*.java" />
+      </fileset>
+    </javadoc>
+  </target>
+  
+  <!-- clean compilation directories -->
+  <target name="clean" >
+    <delete dir="${build}"/>
+    <delete dir="${dist}"/>
+  </target>
+
+</project>
+

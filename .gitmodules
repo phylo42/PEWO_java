@@ -1,0 +1,3 @@
+[submodule "lib/RAPPAS"]
+	path = lib/RAPPAS
+	url = https://github.com/blinard-BIOINFO/RAPPAS
