@@ -10,6 +10,6 @@ The workflow itself and documentation can be found at :
 
 ## License
 
-PEWO(java tools) is available under the MIT license.
+PEWO "java tools" is available under the MIT license.
 
 
