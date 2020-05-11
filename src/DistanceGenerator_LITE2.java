@@ -135,7 +135,7 @@ public class DistanceGenerator_LITE2 {
             }
             if (dg.doRAP) {
                 System.out.println("Scanning for RAPPAS jplace results...");
-                File dir=new File(dg.workDir+File.separator+"RAPPAS");
+                File dir=new File(dg.workDir+File.separator+"RAPPAS2");
                 List<Path> jplaceFiles = Files.find(dir.toPath(), 999, (p,b)-> b.isRegularFile() && p.getFileName().toString().endsWith(".jplace")).collect(Collectors.toList());
                 System.out.println("# jplace found: "+jplaceFiles.size());
                 allJplaceFiles.addAll(jplaceFiles);
@@ -159,7 +159,7 @@ public class DistanceGenerator_LITE2 {
             //paramSet.put("file",++columnCounter);
             paramSet.put("software",++columnCounter);
             paramSet.put("pruning",++columnCounter);
-            //paramSet.put("rname",++columnCounter);
+            paramSet.put("query",++columnCounter);
             paramSet.put("rstart",++columnCounter);
             paramSet.put("rend",++columnCounter);
             paramSet.put("nd",++columnCounter);
@@ -168,7 +168,7 @@ public class DistanceGenerator_LITE2 {
             //pattern 
             //([0-9]+)_r([0-9]+)_([a-z]+)([0-9A-Z]+)_.*_([a-z]+)\.jplace
             //define from jplace filenames which parameters were tested
-            final Pattern pat= Pattern.compile("([a-z]+)([0-9A-Z\\.]+)");
+            final Pattern pat= Pattern.compile("([a-z]+)([0-9a-zA-Z\\-\\.]+)");
             for (Path p:allJplaceFiles) {
                 String filename = p.toFile().getName();
                 String[] infos = filename.split("_");
@@ -222,7 +222,7 @@ public class DistanceGenerator_LITE2 {
                 //System.out.println("software:"+software+" pruning:"+pruning);
 
                 String[] infos=jplaceLabel.split("_");
-                //System.out.println(Arrays.toString(infos));
+                System.out.println("Run parameters: " + Arrays.toString(infos));
                 TreeMap<Integer,String> paramsValues=new TreeMap<>();
                 for (int idx = 1; idx < infos.length-1; idx++) {
                     Matcher m=pat.matcher(infos[idx]);
@@ -233,7 +233,7 @@ public class DistanceGenerator_LITE2 {
                             paramsValues.put(paramSet.get(param),val);
                         }
                     } else {
-                        System.out.println("Error in jplace filename parameters coding, do not matches expected patter.");
+                        System.out.println("Error in jplace filename parameters coding, do not matches expected pattern: " + infos[idx]);
                         System.exit(1);
                     }
                 }
@@ -328,6 +328,7 @@ public class DistanceGenerator_LITE2 {
 
                     //got coordinates of placed read
                     String[] readInfos = name.split("_");
+                    //System.out.println("Read name: " + name);
                     long readStart = 0;
                     long readEnd = 0;
                     try {
@@ -342,7 +343,7 @@ public class DistanceGenerator_LITE2 {
                     }
 
                     //add information only in specific columns
-                    //paramsValues.put(paramSet.get("rname"),name);
+                    paramsValues.put(paramSet.get("query"),name);
                     paramsValues.put(paramSet.get("rstart"),Long.toString(readStart));
                     paramsValues.put(paramSet.get("rend"),Long.toString(readEnd));
                     paramsValues.put(paramSet.get("nd"),Integer.toString(topND));
