@@ -42,6 +42,7 @@ public class DistanceGenerator_LITE2 {
     boolean doRAP=true;
     boolean doEPANG=true;
     boolean doAPPLES=true;
+    boolean doRAPPAS2=true;
     
     public static void main(String[] args) {
         
@@ -52,7 +53,7 @@ public class DistanceGenerator_LITE2 {
         
         try {
             
-            System.out.println("ARGS: workDir doEPA[1/0] doEPANG[0/1] doPPL[1/0] doRAP[0/1] doAPPLES[0,1]");
+            System.out.println("ARGS: workDir doEPA[1/0] doEPANG[0/1] doPPL[1/0] doRAP[0/1] doAPPLES[0,1] doRAPPAS2[0,1]");
 
             //launch
             DistanceGenerator_LITE2 dg=new DistanceGenerator_LITE2();
@@ -67,6 +68,7 @@ public class DistanceGenerator_LITE2 {
                 if (Integer.parseInt(args[3])<1) { dg.doPPL=false; }
                 if (Integer.parseInt(args[4])<1) { dg.doRAP=false; }
                 if (Integer.parseInt(args[5])<1) { dg.doAPPLES=false; }
+                if (Integer.parseInt(args[6])<1) { dg.doRAPPAS2=false; }
             }
 
             //LOAD BINARY INFORMATION
@@ -140,6 +142,13 @@ public class DistanceGenerator_LITE2 {
                 System.out.println("# jplace found: "+jplaceFiles.size());
                 allJplaceFiles.addAll(jplaceFiles);
             }
+            if (dg.doRAPPAS2) {
+                System.out.println("Scanning for RAPPAS jplace results...");
+                File dir=new File(dg.workDir+File.separator+"RAPPAS2");
+                List<Path> jplaceFiles = Files.find(dir.toPath(), 999, (p,b)-> b.isRegularFile() && p.getFileName().toString().endsWith(".jplace")).collect(Collectors.toList());
+                System.out.println("# jplace found: "+jplaceFiles.size());
+                allJplaceFiles.addAll(jplaceFiles);
+            }
             if (dg.doAPPLES) {
                 System.out.println("Scanning for APPLES jplace results...");
                 File dir=new File(dg.workDir+File.separator+"APPLES");
@@ -168,7 +177,7 @@ public class DistanceGenerator_LITE2 {
             //pattern 
             //([0-9]+)_r([0-9]+)_([a-z]+)([0-9A-Z]+)_.*_([a-z]+)\.jplace
             //define from jplace filenames which parameters were tested
-            final Pattern pat= Pattern.compile("([a-z]+)([0-9A-Z\\.]+)");
+            final Pattern pat= Pattern.compile("([a-z]+)([0-9A-Z\\-\\.]+)");
             for (Path p:allJplaceFiles) {
                 String filename = p.toFile().getName();
                 String[] infos = filename.split("_");
@@ -210,6 +219,7 @@ public class DistanceGenerator_LITE2 {
             //for each jplace file, calculate node dist
             for (int i = 0; i < allJplaceFiles.size(); i++) {
                 Path currentJPlaceFile = allJplaceFiles.get(i);
+                //System.out.println(currentJPlaceFile);
                 String jplaceLabel=currentJPlaceFile.getFileName().toString().split("\\.jplace$")[0];
                 String[]elts=jplaceLabel.split("_");
 
@@ -219,7 +229,7 @@ public class DistanceGenerator_LITE2 {
 
                 System.out.println("--------------------------------------");
                 System.out.println("Parsing "+currentJPlaceFile.getFileName().toString());
-                //System.out.println("software:"+software+" pruning:"+pruning);
+                System.out.println("software:"+software+" pruning:"+pruning);
 
                 String[] infos=jplaceLabel.split("_");
                 //System.out.println(Arrays.toString(infos));
@@ -348,7 +358,8 @@ public class DistanceGenerator_LITE2 {
                     paramsValues.put(paramSet.get("nd"),Integer.toString(topND));
                     paramsValues.put(paramSet.get("e_nd"),Double.toString(expectedNodeDistance));
 
-                    //System.out.println(paramsValues);
+                    System.out.println(topND);
+
 
                     //now build output string
                     for (int column=0;column<paramSet.keySet().size();column++) {
