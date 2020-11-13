@@ -42,6 +42,7 @@ public class DistanceGenerator_LITE2 {
     boolean doRAP=true;
     boolean doEPANG=true;
     boolean doAPPLES=true;
+    boolean doAPPSPAM=true;
     
     public static void main(String[] args) {
         
@@ -52,7 +53,7 @@ public class DistanceGenerator_LITE2 {
         
         try {
             
-            System.out.println("ARGS: workDir doEPA[1/0] doEPANG[0/1] doPPL[1/0] doRAP[0/1] doAPPLES[0,1]");
+            System.out.println("ARGS: workDir doEPA[1/0] doEPANG[0/1] doPPL[1/0] doRAP[0/1] doAPPLES[0,1] doAPPSPAM[0,1]");
 
             //launch
             DistanceGenerator_LITE2 dg=new DistanceGenerator_LITE2();
@@ -67,6 +68,7 @@ public class DistanceGenerator_LITE2 {
                 if (Integer.parseInt(args[3])<1) { dg.doPPL=false; }
                 if (Integer.parseInt(args[4])<1) { dg.doRAP=false; }
                 if (Integer.parseInt(args[5])<1) { dg.doAPPLES=false; }
+		        if (Integer.parseInt(args[6])<1) { dg.doAPPSPAM=false; }
             }
 
             //LOAD BINARY INFORMATION
@@ -147,6 +149,13 @@ public class DistanceGenerator_LITE2 {
                 System.out.println("# jplace found: "+jplaceFiles.size());
                 allJplaceFiles.addAll(jplaceFiles);
             } 
+	        if (dg.doAPPSPAM) {
+ 		        System.out.println("Scanning for APPSPAM jplace results...");
+		        File dir=new File(dg.workDir+File.separator+"APPSPAM");
+		        List<Path> jplaceFiles = Files.find(dir.toPath(), 999, (p,b)-> b.isRegularFile() && p.getFileName().toString().endsWith(".jplace")).collect(Collectors.toList());
+		        System.out.println("# jplace found: "+jplaceFiles.size());
+		        allJplaceFiles.addAll(jplaceFiles);
+	        }
 
             //////////////////////////////////////////////////////////
             // DEFINED LIST OF PARAMETERS TESTED IN WORKFLOW
