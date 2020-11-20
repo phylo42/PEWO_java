@@ -23,15 +23,9 @@ import jplace.JplacerLoader.Placement;
 import tree.PhyloNode;
 import tree.PhyloTree;
 
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
 /**
  *
- * @author ben
+ * @author benjamin linard
  */
 public class DistanceGenerator_LITE {
     

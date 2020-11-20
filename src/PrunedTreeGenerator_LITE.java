@@ -36,20 +36,15 @@ import tree.PhyloTreeModel;
 
 import javax.swing.tree.TreeNode;
 
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
 /**
- * From an alignment and tree, build directories of pruning experiments, 
+ From an alignment and tree, build directories of pruning experiments,
  if tree is unrooted then roots it for each pruning experiment,
  saves pruned alignments in AxFile, pruned trees in TxFile and generated reads in Rx,
  build Dtx matrice which defines node_dist between edges (note that roots 
  are not considered in this distance, the 2 edges sons of root are considered
- as the same placement) 
- * @author ben
+ as the same placement)
+
+ * @author benjamin linard
  */
 public class PrunedTreeGenerator_LITE {
     
