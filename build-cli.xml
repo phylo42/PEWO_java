@@ -35,7 +35,7 @@
   </path>
 
   <target name="compile" depends="libraries" >
-    <javac srcdir="${src}" destdir="${build}" optimize="on" source="1.8" target="1.8">
+    <javac srcdir="${src}" destdir="${build}" optimize="on" source="1.8" target="1.8" encoding="UTF-8">
        <classpath refid="project.classpath" />
     </javac>
   </target>
