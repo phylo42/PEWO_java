@@ -1,4 +1,5 @@
 
+import dtx.D2tx;
 import dtx.Dtx;
 import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
@@ -83,6 +84,8 @@ public class DistanceGenerator_LITE2 {
             File expPLaceFile=new File(dg.workDir+File.separator+"expected_placements.bin");
             //Dtx
             File DtxFile=new File(dg.workDir+File.separator+"Dtx.csv");
+            //D2tx
+            File D2txFile=new File(dg.workDir+File.separator+"D2tx.csv");
 
             //load the expected placement
             System.out.println("Loading "+expPLaceFile.getAbsolutePath());
@@ -111,6 +114,8 @@ public class DistanceGenerator_LITE2 {
             //load Dtx
             System.out.println("Loading Dtx matrix...");
             Dtx Dtx=new Dtx(DtxFile);
+            System.out.println("Loading D2tx matrix...");
+            D2tx D2tx=new D2tx(D2txFile);
             //System.out.println(Dtx);
 
             
@@ -146,6 +151,8 @@ public class DistanceGenerator_LITE2 {
             paramSet.put("rend",++columnCounter);
             paramSet.put("nd",++columnCounter);
             paramSet.put("e_nd",++columnCounter);
+            paramSet.put("bd",++columnCounter);
+            paramSet.put("e_bd",++columnCounter);
 
             //pattern 
             //([0-9]+)_r([0-9]+)_([a-z]+)([0-9A-Z]+)_.*_([a-z]+)\.jplace
@@ -269,6 +276,7 @@ public class DistanceGenerator_LITE2 {
                     String name = iterator.next();
 
                     int topND=-1;
+                    Double topBD = -1.0;
                     double topLwr=-1;
                     ArrayList<Integer> nds=new ArrayList<>();
                     ArrayList<Double> lwrs=new ArrayList<>();
@@ -286,12 +294,14 @@ public class DistanceGenerator_LITE2 {
                         //calculate the distance between these 2 nodeIds
                         //i.e. use the DTx matrix
                         int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId);
-                        if (pla==0) {topND=nodeDistance;}
+                        Double branchDistance = D2tx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId);
+                        if (pla==0) {topND=nodeDistance;topBD=branchDistance;}
                         lwrSum +=lwr;
                     }
 
                     //iterate again to compute eND
                     double expectedNodeDistance=0.0;
+                    double expectedBranchDistance=0.0;
                     for (int pla=0;pla<bestPlacements.get(name).size();pla++) {
                         //get best placement as the nodeId of the phylotree generated
                         //during jplace parsing
@@ -304,8 +314,10 @@ public class DistanceGenerator_LITE2 {
                         //calculate the distance between these 2 nodeIds
                         //i.e. use the DTx and D'Tx matrices
                         int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId);
-                        if (pla==0) {topND=nodeDistance;}
+                        Double branchDistance = D2tx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId);
+                        if (pla==0) {topND=nodeDistance;topBD=branchDistance;}
                         expectedNodeDistance+=nodeDistance*lwr/lwrSum;
+                        expectedBranchDistance+=branchDistance*lwr/lwrSum;
                     }
 
                     //get coordinates of placed read in original alignment (before pruning)
@@ -329,7 +341,8 @@ public class DistanceGenerator_LITE2 {
                     paramsValues.put(paramSet.get("rend"),Long.toString(readEnd));
                     paramsValues.put(paramSet.get("nd"),Integer.toString(topND));
                     paramsValues.put(paramSet.get("e_nd"),Double.toString(expectedNodeDistance));
-
+                    paramsValues.put(paramSet.get("bd"),Double.toString(topBD));
+                    paramsValues.put(paramSet.get("e_bd"),Double.toString(expectedBranchDistance));
                     //System.out.println(paramsValues);
 
                     //now build output string
