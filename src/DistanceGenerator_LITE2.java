@@ -286,7 +286,7 @@ public class DistanceGenerator_LITE2 {
                         int experimentTreeNodeId = mapNodes.get(jplacePhyloTreeNodeId);
                         //calculate the distance between these 2 nodeIds
                         //i.e. use the DTx matrix
-                        int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId)+1;
+                        int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId);
                         if (pla==0) {topND=nodeDistance;}
                         lwrSum +=lwr;
                     }
@@ -304,7 +304,7 @@ public class DistanceGenerator_LITE2 {
                         int experimentTreeNodeId = mapNodes.get(jplacePhyloTreeNodeId);
                         //calculate the distance between these 2 nodeIds
                         //i.e. use the DTx and D'Tx matrices
-                        int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId)+1;
+                        int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId);
                         if (pla==0) {topND=nodeDistance;}
                         expectedNodeDistance+=nodeDistance*lwr/lwrSum;
                     }
