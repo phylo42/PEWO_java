@@ -273,7 +273,7 @@ public class JplacerLoader {
         public int compareTo(Placement o) {
             if (this.weightRatio==o.weightRatio) {
                 return 0;
-            } if (this.weightRatio<o.weightRatio) {
+            } if (this.weightRatio > o.weightRatio) {
                 return -1;
             } else {
                 return 1;
