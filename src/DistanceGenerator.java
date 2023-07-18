@@ -31,7 +31,7 @@ import tree.PhyloTree;
  *
  * @author benjamin linard
  */
-public class DistanceGenerator_LITE2 {
+public class DistanceGenerator {
     
     File workDir= null;
     ArrayList<File> dirs = null;
@@ -49,7 +49,7 @@ public class DistanceGenerator_LITE2 {
             System.out.println("example: /path/to/pewo_workdir EPANG,RAPPAS,PPLACER");
 
             //launch
-            DistanceGenerator_LITE2 dg=new DistanceGenerator_LITE2();
+            DistanceGenerator dg=new DistanceGenerator();
 
             System.out.println(System.getProperty("java.class.path"));
 
@@ -356,11 +356,9 @@ public class DistanceGenerator_LITE2 {
 
             System.exit(0);
 
-        } catch (FileNotFoundException ex) {
-            Logger.getLogger(DistanceGenerator_LITE.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException | ClassNotFoundException ex) {
-            Logger.getLogger(DistanceGenerator_LITE.class.getName()).log(Level.SEVERE, null, ex);
-        } 
+            Logger.getLogger(DistanceGenerator.class.getName()).log(Level.SEVERE, null, ex);
+        }
 
         
         

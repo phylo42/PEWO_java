@@ -46,7 +46,7 @@ import javax.swing.tree.TreeNode;
 
  * @author benjamin linard
  */
-public class PrunedTreeGenerator_LITE {
+public class PrunedTreeGenerator {
     
     //pseudorandom generator
     Long seed=1L;
@@ -116,7 +116,7 @@ public class PrunedTreeGenerator_LITE {
         
         try {
             //launch
-            PrunedTreeGenerator_LITE ptg=new PrunedTreeGenerator_LITE();
+            PrunedTreeGenerator ptg=new PrunedTreeGenerator();
             
             //PREPARE DATA SOURCES
             ///////////////////////////////////////////////////
@@ -231,9 +231,9 @@ public class PrunedTreeGenerator_LITE {
             Thread.sleep(1);
             
         } catch (IOException ex) {
-            Logger.getLogger(PrunedTreeGenerator_LITE.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PrunedTreeGenerator.class.getName()).log(Level.SEVERE, null, ex);
         } catch (InterruptedException ex) {
-            Logger.getLogger(PrunedTreeGenerator_LITE.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PrunedTreeGenerator.class.getName()).log(Level.SEVERE, null, ex);
         }
         
     }

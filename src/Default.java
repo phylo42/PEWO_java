@@ -16,8 +16,8 @@ public class Default {
         System.out.println("Use command 'java -cp PEWO.jar \"operation\" parameters'");
         System.out.println("Available \"operations\" are:");
         System.out.println();
-        System.out.println("PrunedTreeGenerator_LITE");
-        System.out.println("DistanceGenerator_LITE2");
+        System.out.println("PrunedTreeGenerator");
+        System.out.println("DistanceGenerator");
     }
     
 }
