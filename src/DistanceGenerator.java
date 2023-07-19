@@ -94,17 +94,23 @@ public class DistanceGenerator {
         /// parameters art-co, art-pl (i.e. group prefix "art")
         String groupPrefix = keyValuePairs[0].split("(?<=\\p{Lower})(?=\\p{Upper})")[1].toLowerCase();
 
-        /// Iterate over local parameters but the first one
-        for (int j = 1; j < keyValuePairs.length; j++) {
+        /// Iterate over local parameters
+        for (int j = 0; j < keyValuePairs.length; j++) {
             String keyValuePair = keyValuePairs[j];
             String[] keyAndValue = keyValuePair.split("(?<=\\p{Lower})(?=\\p{Upper})");
-            String key = keyAndValue[0];
+            String name = keyAndValue[0];
             String value = keyAndValue[1];
 
-            /// Resolve the local parameter name to the global space:
-            /// e.g. art-co, art-pl
-            String resolvedName = groupPrefix + "-" + key;
-            parameters.add(new Parameter(resolvedName, value));
+            /// The first parameter of the group saved as-is
+            if (j == 0) {
+                parameters.add(new Parameter(name, value));
+            } else {
+                /// All other parameter names are resolved to the global parameter namespace
+                /// using the group prefix: e.g. art-co, art-pl
+                String resolvedName = groupPrefix + "-" + name;
+                parameters.add(new Parameter(resolvedName, value));
+            }
+
         }
         return parameters;
     }
