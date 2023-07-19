@@ -4,10 +4,10 @@ import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -38,7 +38,8 @@ public class DistanceGenerator {
     LinkedHashMap<String,Integer> paramSet = new LinkedHashMap<>(32);
 
     // Pattern: ([0-9]+)_r([0-9]+)_([a-z]+)([0-9A-Z]+)_.*_([a-z]+)\.jplace
-    final Pattern patternMatch = Pattern.compile("([a-z]+)([0-9A-z\\-\\.]+)");
+    final Pattern classicParameterPattern = Pattern.compile("([a-z]+)([0-9A-z\\-\\.]+)");
+    final Pattern localGroupPattern = Pattern.compile("^([a-z0-9]+[A-Z0-9\\.]+)(-[a-z0-9]+[A-Z0-9\\.]+)*$");
 
     DistanceGenerator(File workingDirectory, ArrayList<File> softwareDirs) {
         workDir = workingDirectory;
@@ -67,23 +68,96 @@ public class DistanceGenerator {
         return columnCounter;
     }
 
+    /// An auxilary class used to parse parameter key-value pairs in .jplace file names
+    static class Parameter {
+        public String name;
+        public String value;
+
+        public Parameter(String n, String v) {
+            name = n;
+            value = v;
+        }
+    };
+
+    /// Parses a group of local parameters. Returns a list of key-value pairs with
+    /// local parameter names resolved using the value of the first parameter.
+    /// Example: rgenART-coILLUMINA-plMSV3 is resolved to
+    /// [ (art-co, ILLUMINA), (art-pl, MSV3) ]
+    List<Parameter> parseLocalGroup(String parameterGroup) {
+        ArrayList<Parameter> parameters = new ArrayList<>();
+
+        String[] keyValuePairs = parameterGroup.split("-");
+
+        /// Form the group prefix, i.e. take the value of the first
+        /// local parameter as the prefix for the whole group of local paramters.
+        /// E.g. the group "rgenART-coILLUMINA-plHS25" will have
+        /// parameters art-co, art-pl (i.e. group prefix "art")
+        String groupPrefix = keyValuePairs[0].split("(?<=\\p{Lower})(?=\\p{Upper})")[1].toLowerCase();
+
+        /// Iterate over local parameters but the first one
+        for (int j = 1; j < keyValuePairs.length; j++) {
+            String keyValuePair = keyValuePairs[j];
+            String[] keyAndValue = keyValuePair.split("(?<=\\p{Lower})(?=\\p{Upper})");
+            String key = keyAndValue[0];
+            String value = keyAndValue[1];
+
+            /// Resolve the local parameter name to the global space:
+            /// e.g. art-co, art-pl
+            String resolvedName = groupPrefix + "-" + key;
+            parameters.add(new Parameter(resolvedName, value));
+        }
+        return parameters;
+    }
+
     /// Updates the paramSet with the columns specific to tested
     /// software based on jplace file names
     void initializeUncommonColumns(List<Path> jplaceFiles, int columnCounter) {
-        for (Path p:jplaceFiles) {
-            String filename = p.toFile().getName();
-            String[] globalGroups = filename.split("_");
 
-            // 1st element is pruning id, last element is "software.jplace"
-            for (int i = 1; i < globalGroups.length - 1; i++) {
-                Matcher m = patternMatch.matcher(globalGroups[i]);
-                if (m.matches()) {
-                    String param = m.group(1);
-                    if (!paramSet.containsKey(param)) {
-                        paramSet.put(m.group(1), ++columnCounter);
+
+        for (Path currentJplaceFile : jplaceFiles) {
+            String filename = currentJplaceFile.toFile().getName();
+
+            /// Split the filename by _ into parameter groups.
+            /// The classic PEWO convention is that all parameters
+            /// are just separated by the underscore: e.g. 0_r150_ms6_sb3_mp40_pplacer.jplace
+            /// The new convention assumes that underscores split the name
+            /// into "scopes". Every scope can be either a global key-value parameter (classic)
+            /// or a dash-concatenated sequences of local key-value parameters (new).
+            String[] parameterGroups = filename.split("_");
+
+            /// 1st element is pruning id, last element is "software.jplace"
+            for (int i = 1; i < parameterGroups.length - 1; i++) {
+                String parameterGroup = parameterGroups[i];
+
+                /// New convention
+                if (parameterGroup.contains("-")) {
+                    if (!localGroupPattern.matcher(parameterGroup).matches()) {
+                        throw new RuntimeException("Invalid format: " + parameterGroup);
+                    }
+
+                    List<Parameter> localParams = parseLocalGroup(parameterGroup);
+                    for (Parameter parameter : localParams) {
+                        if (!paramSet.containsKey(parameter.name)) {
+                            paramSet.put(parameter.name, ++columnCounter);
+                        }
+                    }
+
+
+                }
+                /// Classic convention
+                else
+                {
+                    Matcher m = classicParameterPattern.matcher(parameterGroup);
+                    if (m.matches()) {
+                        String param = m.group(1);
+                        if (!paramSet.containsKey(param)) {
+                            paramSet.put(m.group(1), ++columnCounter);
+                        }
                     }
                 }
+
             }
+
         }
     }
 
@@ -103,6 +177,28 @@ public class DistanceGenerator {
 
         return allJplaceFiles;
     }
+
+    static class ReadParameters
+    {
+        public long readStart = 0;
+        public long readEnd = 0;
+    };
+
+    ReadParameters parseReadParameters(String queryName) {
+        ReadParameters parameters = new ReadParameters();
+
+        /// Get coordinates of placed read in original alignment (before pruning)
+        String[] readInfo = queryName.split("_");
+        try {
+            parameters.readStart = Long.decode(readInfo[readInfo.length - 2]);
+            parameters.readEnd = Long.decode(readInfo[readInfo.length - 1]);
+        } catch (NumberFormatException | ArrayIndexOutOfBoundsException ex) {
+            /// Reads generated by programs like ART do not have neither start
+            /// nor end. An exception is expected
+        }
+        return parameters;
+    }
+
 
     void computeDistances() throws IOException, ClassNotFoundException {
 
@@ -145,7 +241,7 @@ public class DistanceGenerator {
         List<Path> allJplaceFiles = findJplaceFiles(dirs);
 
         /// Create the set of columns for results.csv based on jplace files
-        var paramSet = initializeParamSet(allJplaceFiles);
+        LinkedHashMap<String,Integer> paramSet = initializeParamSet(allJplaceFiles);
 
         // Prepare the results.csv file
         Path csvResult = Paths.get(workDir.getAbsolutePath(),"results.csv");
@@ -173,13 +269,30 @@ public class DistanceGenerator {
             System.out.println("Run parameters: " + Arrays.toString(infos));
             TreeMap<Integer, String> paramsValues = new TreeMap<>();
             for (int idx = 1; idx < infos.length - 1; idx++) {
-                Matcher m = patternMatch.matcher(infos[idx]);
+                String parameterGroup = infos[idx];
+
+                Matcher m = classicParameterPattern.matcher(parameterGroup);
                 if (m.matches()) {
-                    String param = m.group(1);
-                    if (paramSet.containsKey(param)) {
-                        String val = m.group(2);
-                        paramsValues.put(paramSet.get(param), val);
+                    /// New convention with local parameters
+                    if (parameterGroup.contains("-")) {
+                        List<Parameter> localParameters = parseLocalGroup(parameterGroup);
+
+                        for (Parameter parameter : localParameters) {
+                            if (paramSet.containsKey(parameter.name)) {
+                                paramsValues.put(paramSet.get(parameter.name), parameter.value);
+                            }
+                        }
                     }
+                    /// Classic convention
+                    else {
+                        String param = m.group(1);
+                        String val = m.group(2);
+
+                        if (paramSet.containsKey(param)) {
+                            paramsValues.put(paramSet.get(param), val);
+                        }
+                    }
+
                 } else {
                     System.out.println("Error in jplace filename parameters coding, do not matches expected pattern: " + infos[idx]);
                     System.exit(1);
@@ -191,21 +304,20 @@ public class DistanceGenerator {
 
             //System.out.println(paramsValues);
 
-            //load tree and expectedPlacements related to this pruning
+            // load tree and expectedPlacements related to this pruning
             PhyloTree experimentTree = experimentTrees.get(pruning);
             experimentTree.initIndexes();
             ArrayList<Integer> experimentPlacements = expectedPlacements.get(pruning);
 
-            //load jplace content
+            // load jplace content
             JplacerLoader jpl = null;
             if (!software.equals("epang")) {
                 jpl = new JplacerLoader(currentJPlaceFile.toFile(), false);
             } else {
-                //was false with older versions of epang, but now seems to conserve root correctly,
-                //code kept if need to reverse
+                // was false with older versions of epang, but now seems to conserve root correctly,
+                // code kept if needed to reverse
                 jpl = new JplacerLoader(currentJPlaceFile.toFile(), false);
             }
-
 
             if (jpl.getTree().getNodeCount() != experimentTree.getNodeCount()) {
                 jpl.getTree().displayTree();
@@ -216,8 +328,8 @@ public class DistanceGenerator {
                 System.exit(1);
             }
 
-            //version of EPA-ng prior to 0.3.4 unroots the input tree
-            //this needs to be corrected, posterior versions, no need to correct
+            // version of EPA-ng prior to 0.3.4 unroots the input tree
+            // this needs to be corrected, posterior versions, no need to correct
 
             if (jpl.getTree().getNodeCount() != experimentTree.getNodeCount()) {
                 System.out.println("Something is wrong between the JPlace and expected_placements.bin trees.");
@@ -225,34 +337,32 @@ public class DistanceGenerator {
                 System.exit(1);
             }
 
-            //map EPA jplace to experimentTree
+            // map EPA jplace to experimentTree
             HashMap<Integer, Integer> mapNodes = jpl.getTree().mapNodes(experimentTree);
-            //retrieve best placements
+            // retrieve best placements
             HashMap<String, ArrayList<Placement>> bestPlacements = jpl.getPlacements();
 
             //iterate on placements
-            for (Iterator<String> iterator = bestPlacements.keySet().iterator(); iterator.hasNext(); ) {
-                String name = iterator.next();
+            for (String queryName : bestPlacements.keySet()) {
+                paramsValues.put(paramSet.get("query"), queryName);
 
                 int topND = -1;
                 double topLwr = -1;
-                ArrayList<Integer> nds = new ArrayList<>();
-                ArrayList<Double> lwrs = new ArrayList<>();
                 double lwrSum = 0.0;
-                //iterate on placement branches once to compute (expected_ND)*LWR sum
-                for (int pla = 0; pla < bestPlacements.get(name).size(); pla++) {
-                    //get the best placement as the nodeId of the phylotree generated
-                    //during jplace parsing
-                    Integer jplacePhyloTreeNodeId = bestPlacements.get(name).get(pla).getNodeId();
-                    double lwr = bestPlacements.get(name).get(pla).getWeightRatio();
+                // iterate on placement branches once to compute (expected_ND)*LWR sum
+                for (int pla = 0; pla < bestPlacements.get(queryName).size(); pla++) {
+                    // get the best placement as the nodeId of the phylotree generated
+                    // during jplace parsing
+                    Integer jplacePhyloTreeNodeId = bestPlacements.get(queryName).get(pla).getNodeId();
+                    double lwr = bestPlacements.get(queryName).get(pla).getWeightRatio();
                     if (pla == 0) {
                         topLwr = lwr;
                     }
-                    //get its equivalent nodeId in the phylotree loaded from the
-                    //expected_placements.bin
+                    // get its equivalent nodeId in the phylotree loaded from the
+                    // expected_placements.bin
                     int experimentTreeNodeId = mapNodes.get(jplacePhyloTreeNodeId);
-                    //calculate the distance between these 2 nodeIds
-                    //i.e. use the DTx matrix
+                    // calculate the distance between these 2 nodeIds
+                    // i.e. use the DTx matrix
                     int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId);
                     if (pla == 0) {
                         topND = nodeDistance;
@@ -260,55 +370,37 @@ public class DistanceGenerator {
                     lwrSum += lwr;
                 }
 
-                //iterate again to compute eND
+                // iterate again to compute eND
                 double expectedNodeDistance = 0.0;
-                for (int pla = 0; pla < bestPlacements.get(name).size(); pla++) {
-                    //get best placement as the nodeId of the phylotree generated
-                    //during jplace parsing
-                    Integer jplacePhyloTreeNodeId = bestPlacements.get(name).get(pla).getNodeId();
-                    double lwr = bestPlacements.get(name).get(pla).getWeightRatio();
+                for (int pla = 0; pla < bestPlacements.get(queryName).size(); pla++) {
+                    // get the best placement as the nodeId of the phylotree generated
+                    // during jplace parsing
+                    Integer jplacePhyloTreeNodeId = bestPlacements.get(queryName).get(pla).getNodeId();
+                    double lwr = bestPlacements.get(queryName).get(pla).getWeightRatio();
                     if (pla == 0) {
                         topLwr = lwr;
                     }
-                    //get its equivalent nodeId in the phylotree loaded from the
-                    //expected_placements.bin
+                    // get its equivalent nodeId in the phylotree loaded from the
+                    // expected_placements.bin
                     int experimentTreeNodeId = mapNodes.get(jplacePhyloTreeNodeId);
-                    //calculate the distance between these 2 nodeIds
-                    //i.e. use the DTx and D'Tx matrices
+
+                    // calculate the distance between these 2 nodeIds
+                    // i.e. use the DTx and D'Tx matrices
                     int nodeDistance = Dtx.getNodeDistance(pruningIndex.get(pruning), experimentTreeNodeId);
                     if (pla == 0) {
                         topND = nodeDistance;
                     }
                     expectedNodeDistance += nodeDistance * lwr / lwrSum;
                 }
-
-                //get coordinates of placed read in original alignment (before pruning)
-                String[] readInfos = name.split("_");
-                //System.out.println("Read name: " + name);
-                long readStart = 0;
-                long readEnd = 0;
-                try {
-                    readStart = Long.decode(readInfos[readInfos.length - 2]);
-                } catch (NumberFormatException ex) {
-                    ex.printStackTrace();
-                }
-                try {
-                    readEnd = Long.decode(readInfos[readInfos.length - 1]);
-                } catch (NumberFormatException ex) {
-                    ex.printStackTrace();
-                }
-
-                //add information only in specific columns
-                paramsValues.put(paramSet.get("query"), name);
-                paramsValues.put(paramSet.get("rstart"), Long.toString(readStart));
-                paramsValues.put(paramSet.get("rend"), Long.toString(readEnd));
                 paramsValues.put(paramSet.get("nd"), Integer.toString(topND));
                 paramsValues.put(paramSet.get("e_nd"), Double.toString(expectedNodeDistance));
 
-                System.out.println(topND);
+                // Parse read_start, read_end if they present in the query name
+                ReadParameters readParameters = parseReadParameters(queryName);
+                paramsValues.put(paramSet.get("rstart"), Long.toString(readParameters.readStart));
+                paramsValues.put(paramSet.get("rend"), Long.toString(readParameters.readEnd));
 
-
-                //now build output string
+                // Make the output string
                 for (int column = 0; column < paramSet.keySet().size(); column++) {
                     if (column > 0) {
                         bw.append(";");
